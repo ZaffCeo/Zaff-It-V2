@@ -24,11 +24,13 @@
 -- 1. Dedicated handover-OTP vault (deny-by-default RLS)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.delivery_handover_otps (
-    task_id        UUID PRIMARY KEY REFERENCES public.delivery_tasks(id) ON DELETE CASCADE,
-    pickup_otp     TEXT NOT NULL,
-    delivery_otp   TEXT NOT NULL,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    task_id         UUID PRIMARY KEY REFERENCES public.delivery_tasks(id) ON DELETE CASCADE,
+    pickup_otp      TEXT NOT NULL,
+    delivery_otp    TEXT NOT NULL,
+    failed_attempts INT  NOT NULL DEFAULT 0,
+    locked          BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.delivery_handover_otps ENABLE ROW LEVEL SECURITY;
@@ -95,17 +97,11 @@ GRANT EXECUTE ON FUNCTION public.get_my_delivery_otp(UUID) TO authenticated;
 -- ---------------------------------------------------------------------------
 -- 5. Audit the hardening change itself
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM public.audit_logs LIMIT 1) OR TRUE THEN
-        INSERT INTO public.audit_logs (actor_role, action, entity_type, entity_id, details)
-        VALUES (
-            'system',
-            'SECURITY_HARDENING_005',
-            'delivery_tasks',
-            NULL,
-            '{"change": "OTPs moved to delivery_handover_otps (deny-all RLS); rider UPDATE policy removed; customer OTP via get_my_delivery_otp RPC"}'::JSONB
-        );
-    END IF;
-END
-$$;
+INSERT INTO public.audit_logs (actor_role, action, entity_type, entity_id, new_data)
+VALUES (
+    'system',
+    'SECURITY_HARDENING_005',
+    'delivery_tasks',
+    NULL,
+    '{"change": "OTPs moved to delivery_handover_otps (deny-all RLS); rider UPDATE policy removed; customer OTP via get_my_delivery_otp RPC"}'::JSONB
+);
