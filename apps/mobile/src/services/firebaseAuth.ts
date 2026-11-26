@@ -18,8 +18,13 @@
  */
 import { Platform } from 'react-native';
 
-const FIREBASE_API_KEY = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
-const FIREBASE_PROJECT_ID = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+// Firebase web config is a PUBLIC project identifier by design (auth security
+// lives in Firebase rules + authorized domains), so committing it as a default
+// is standard Firebase practice. Env vars still override when provided.
+const FIREBASE_API_KEY =
+  process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? 'AIzaSyABna0QcPXTpZguZbdMTsEk7zqZiRM1GsY';
+const FIREBASE_PROJECT_ID =
+  process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? 'zaff-it';
 
 /** True only when creds exist AND we're on web (recaptcha requirement). */
 export const FIREBASE_PHONE_ENABLED =
