@@ -12,6 +12,7 @@ const CORS_HEADERS = {
 // 503 "high demand", so Zaffy tries each before falling to a second provider.
 const GEMINI_FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 const GROQ_DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const OPENROUTER_FALLBACK_MODELS = ['google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free'];
 
 // AUD-MED-5: per-user + global sliding-window rate limits to prevent API cost
 // abuse. In-isolate memory is per-instance; combined with the 500-char query
@@ -69,7 +70,8 @@ function escapeXml(value: string): string {
 // ---------------------------------------------------------------------------
 // LLM provider fallback chain (availability hardening):
 //   1. Gemini — primary (GEMINI_MODEL), then curated flash fallbacks.
-//   2. Groq free tier (OpenAI-compatible) as last resort when GROQ_API_KEY is
+//   2. Groq free tier (OpenAI-compatible) when GROQ_API_KEY is set.
+//   3. OpenRouter (OpenAI-compatible, :free models) when OPENROUTER_API_KEY is
 //      set. The SAME system instruction goes to every provider, so grounding,
 //      read-only behaviour and anti-injection rules are identical everywhere.
 // ---------------------------------------------------------------------------
@@ -114,12 +116,39 @@ async function callGroq(apiKey: string, model: string, systemInstruction: string
   return String(text);
 }
 
+async function callOpenRouter(apiKey: string, model: string, systemInstruction: string, userInput: string): Promise<string> {
+  const r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': 'https://zaff-it.vercel.app',
+      'X-Title': 'ZAFF-IT Zaffy',
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_tokens: 512,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: userInput },
+      ],
+    }),
+  });
+  if (!r.ok) throw new Error(`openrouter ${model} HTTP ${r.status}`);
+  const j = await r.json();
+  const text = j?.choices?.[0]?.message?.content;
+  if (!text) throw new Error(`openrouter ${model} empty response`);
+  return String(text);
+}
+
 async function callLLM(
   systemInstruction: string,
   userInput: string,
 ): Promise<{ reply: string; provider: string; model: string }> {
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
   const groqApiKey = Deno.env.get('GROQ_API_KEY');
+  const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 
   if (geminiApiKey) {
     const primary = Deno.env.get('GEMINI_MODEL') ?? GEMINI_FALLBACK_MODELS[0];
@@ -140,7 +169,21 @@ async function callLLM(
       const reply = await callGroq(groqApiKey, model, systemInstruction, userInput);
       return { reply, provider: 'groq', model };
     } catch {
-      // fall through to final failure
+      // fall through to next provider
+    }
+  }
+
+  if (openrouterApiKey) {
+    const primary = Deno.env.get('OPENROUTER_MODEL') ?? OPENROUTER_FALLBACK_MODELS[0];
+    const orFallback = Deno.env.get('OPENROUTER_MODEL_FALLBACK');
+    const chain = [primary, ...(orFallback ? [orFallback] : []), ...OPENROUTER_FALLBACK_MODELS.filter((m) => m !== primary && m !== orFallback)];
+    for (const model of chain) {
+      try {
+        const reply = await callOpenRouter(openrouterApiKey, model, systemInstruction, userInput);
+        return { reply, provider: 'openrouter', model };
+      } catch {
+        // try next openrouter model
+      }
     }
   }
 
@@ -157,7 +200,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
   const groqApiKey = Deno.env.get('GROQ_API_KEY');
-  if (!supabaseUrl || !anonKey || (!geminiApiKey && !groqApiKey)) {
+  const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+  if (!supabaseUrl || !anonKey || (!geminiApiKey && !groqApiKey && !openrouterApiKey)) {
     return jsonError(500, 'INTERNAL_ERROR', 'Server configuration missing', requestId);
   }
 
