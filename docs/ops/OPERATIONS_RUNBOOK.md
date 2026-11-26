@@ -104,3 +104,13 @@ Track only: screen_view, add_to_cart, checkout_success, zaffy_query (PII nahin).
   → OPENROUTER_API_KEY. All optional; missing ⇒ source-only ingest + needs_review.
 - Health: `SELECT status, count(*) FROM catalog_ingest_queue GROUP BY 1;`
   stuck 'processing' > 10 min ⇒ reset to pending after checking function logs.
+
+### Catalog P1 additions (2026-11-26, migration 013)
+- Permanent IDs: products.zaff_product_id auto 'ZP-000000001'… via trigger on
+  auto_published/admin_verified. Sequence reset allowed ONLY while catalog empty.
+- Review loop: catalog_review_queue view (security_invoker) + RPC
+  approve_catalog_product(uuid, 'approve'|'reject', note) — admin-only,
+  writes change_history. Admin app → Catalog tab (CatalogReviewScreen).
+- Prices: mandi_prices (AGMARKNET raw, unique commodity+variety+grade+mandi+date);
+  product_prices for product-linked (8 types never mixed). Queue job type
+  'agmarknet_price' dormant until DATA_GOV_IN_API_KEY secret is set.

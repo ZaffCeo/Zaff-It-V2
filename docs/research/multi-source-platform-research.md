@@ -294,10 +294,10 @@ OFF API https://world.openfoodfacts.org/data · data.gov.in https://data.gov.in 
 | Supabase free pause | Cron traffic ✓ + P-B upgrade at revenue |
 
 ## 18. Prioritized Implementation Checklist
-1. ☐ Apply schema delta §8 (P1, one migration 013)
-2. ☐ AGMARKNET price ingestion job type + cron (free key registration)
-3. ☐ Admin verification queue UI (approve/reject needs_review products)
-4. ☐ ZP-ID trigger + backfill on approval
+1. ✅ Migration 013 applied+verified (2026-11-26): ZP-ID trigger, variants, barcodes, attributes, product_prices, mandi_prices, sources/licenses seeded, change_history, api_clients, approve_catalog_product RPC, catalog_review_queue view
+2. ✅ agmarknet_price job type added (queue constraint + worker v6 handler; dormant until DATA_GOV_IN_API_KEY secret — founder registers free at data.gov.in)
+3. ✅ CatalogReviewScreen live in admin app (Catalog tab) — RLS-guarded, RPC-backed
+4. ✅ ZP-ID trigger E2E tested: needs_review→admin_verified assigned ZP-000000001 (test cleaned, sequence reset)
 5. ☐ WhatsApp Cloud API app + 2 utility templates (order confirm, out-for-delivery)
 6. ☐ Openverse job type (higher-volume image fallback)
 7. ☐ Seller photo upload → R2 signed-URL flow
