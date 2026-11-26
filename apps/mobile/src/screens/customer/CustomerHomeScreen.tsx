@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -811,26 +813,49 @@ export const CustomerHomeScreen: React.FC = () => {
       style={[styles.safe, { backgroundColor: surface.canvasLowest }]}
       edges={['top', 'left', 'right']}
     >
-      <FlashList
-        data={loading ? [] : filteredProducts}
-        numColumns={2}
-        keyExtractor={(item) => item.product_id}
-        renderItem={renderProductCard}
-        ListHeaderComponent={renderListHeader}
-        ListEmptyComponent={
-          !loading ? (
-            <View style={styles.emptyPad}>
-              <EmptyState
-                title={t.emptyCartTitle}
-                subtitle={t.emptyCartSubtitle}
-                mode={colorScheme}
-              />
-            </View>
-          ) : null
-        }
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {Platform.OS === 'web' ? (
+        <FlatList
+          data={loading ? [] : filteredProducts}
+          numColumns={2}
+          keyExtractor={(item) => item.product_id}
+          renderItem={renderProductCard}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={
+            !loading ? (
+              <View style={styles.emptyPad}>
+                <EmptyState
+                  title={t.emptyCartTitle}
+                  subtitle={t.emptyCartSubtitle}
+                  mode={colorScheme}
+                />
+              </View>
+            ) : null
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlashList
+          data={loading ? [] : filteredProducts}
+          numColumns={2}
+          keyExtractor={(item) => item.product_id}
+          renderItem={renderProductCard}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={
+            !loading ? (
+              <View style={styles.emptyPad}>
+                <EmptyState
+                  title={t.emptyCartTitle}
+                  subtitle={t.emptyCartSubtitle}
+                  mode={colorScheme}
+                />
+              </View>
+            ) : null
+          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Floating Cart Bar */}
       {totalCount > 0 ? (

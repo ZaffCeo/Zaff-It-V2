@@ -79,7 +79,16 @@ export const LoginOtpScreen: React.FC = () => {
     }
 
     if (!isSupabaseConfigured()) {
-      setSession('dev-customer-makrana', normalizedPhone, 'customer');
+      // Demo mode: allow ?role=merchant|rider|admin on web for preview builds.
+      let demoRole: UserRole | null = null;
+      if (typeof window !== 'undefined') {
+        const param = new URLSearchParams(window.location.search).get('role');
+        if (param === 'merchant' || param === 'rider' || param === 'admin') {
+          demoRole = param;
+        }
+      }
+      const role: UserRole = demoRole ?? 'customer';
+      setSession(`dev-${role}-makrana`, normalizedPhone, role);
       return;
     }
 
