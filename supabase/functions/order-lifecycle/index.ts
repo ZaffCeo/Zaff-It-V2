@@ -439,7 +439,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const { error: otpUpdErr } = await adminClient
           .from('delivery_handover_otps')
           .upsert(
-            { task_id: task.id, pickup_otp: pickupOtp, delivery_otp: deliveryOtp, updated_at: nowIso },
+            { task_id: task.id, pickup_otp: pickupOtp, delivery_otp: deliveryOtp, failed_attempts: 0, locked: false, updated_at: nowIso },
             { onConflict: 'task_id' },
           );
         if (otpUpdErr) {
@@ -517,11 +517,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (payload.action === 'delivered') {
       const { data: handoverCodes } = await adminClient
         .from('delivery_handover_otps')
-        .select('delivery_otp')
+        .select('delivery_otp, failed_attempts, locked')
         .eq('task_id', task.id)
         .maybeSingle();
-      if (!handoverCodes?.delivery_otp || payload.otp !== handoverCodes.delivery_otp) {
+      if (!handoverCodes?.delivery_otp) {
         return jsonError(400, 'VALIDATION_ERROR', 'Invalid 4-digit handover OTP', requestId);
+      }
+      if (handoverCodes.locked === true) {
+        return jsonError(
+          423,
+          'OTP_LOCKED',
+          'Too many wrong OTP attempts. Admin task reassignment resets the OTP.',
+          requestId,
+        );
+      }
+      if (payload.otp !== handoverCodes.delivery_otp) {
+        const nextAttempts = (handoverCodes.failed_attempts ?? 0) + 1;
+        const nowLocked = nextAttempts >= 5;
+        await adminClient
+          .from('delivery_handover_otps')
+          .update({ failed_attempts: nextAttempts, locked: nowLocked, updated_at: nowIso })
+          .eq('task_id', task.id);
+        const remaining = Math.max(0, 5 - nextAttempts);
+        return jsonError(
+          400,
+          'VALIDATION_ERROR',
+          nowLocked
+            ? 'OTP locked after too many wrong attempts. Contact support for reassignment.'
+            : `Invalid OTP. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`,
+          requestId,
+          { attempts_remaining: remaining },
+        );
       }
 
       if (order.payment_method === 'cod') {

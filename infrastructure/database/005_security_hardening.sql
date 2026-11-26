@@ -24,11 +24,13 @@
 -- 1. Dedicated handover-OTP vault (deny-by-default RLS)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.delivery_handover_otps (
-    task_id        UUID PRIMARY KEY REFERENCES public.delivery_tasks(id) ON DELETE CASCADE,
-    pickup_otp     TEXT NOT NULL,
-    delivery_otp   TEXT NOT NULL,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    task_id         UUID PRIMARY KEY REFERENCES public.delivery_tasks(id) ON DELETE CASCADE,
+    pickup_otp      TEXT NOT NULL,
+    delivery_otp    TEXT NOT NULL,
+    failed_attempts INT  NOT NULL DEFAULT 0,
+    locked          BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE public.delivery_handover_otps ENABLE ROW LEVEL SECURITY;

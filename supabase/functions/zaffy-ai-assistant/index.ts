@@ -87,6 +87,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const rl = rateLimit(authData.user.id);
+  // Persistent (DB-backed) per-user window — survives instance restarts; RPC
+  // miss/error falls back to the in-memory verdict above (best-effort hardening).
+  try {
+    const { data: dbAllowed, error: rlErr } = await supabase.rpc('check_rate_limit', {
+      p_key: `zaffy:user:${authData.user.id}`,
+      p_max: USER_RATE_LIMIT,
+      p_window_sec: 60,
+    });
+    if (!rlErr && dbAllowed === false) {
+      return jsonError(
+        429,
+        'RATE_LIMITED',
+        'Too many AI requests. Please retry shortly.',
+        requestId,
+        { 'Retry-After': '60' },
+      );
+    }
+  } catch {
+    // transient DB issue — in-memory limiter remains authoritative for this instance
+  }
   if (!rl.allowed) {
     return new Response(
       JSON.stringify({

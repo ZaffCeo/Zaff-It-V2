@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -36,11 +36,18 @@ export const LoginOtpScreen: React.FC = () => {
   const [otpDigits, setOtpDigits] = useState('');
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const normalizedPhone = `+91${phoneDigits.replace(/\D/g, '').slice(0, 10)}`;
   const isPhoneValid = phoneDigits.replace(/\D/g, '').length === 10;
   const isOtpValid = otpDigits.replace(/\D/g, '').length === 6;
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const id = setInterval(() => setResendIn((s) => (s <= 1 ? 0 : s - 1)), 1000);
+    return () => clearInterval(id);
+  }, [resendIn]);
 
   const handleSendOtp = async () => {
     setErrorMsg(null);
@@ -54,6 +61,7 @@ export const LoginOtpScreen: React.FC = () => {
       return;
     }
 
+    setResendIn(60); // server-side OTP resend windows (Supabase) + client spam guard
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -266,8 +274,9 @@ export const LoginOtpScreen: React.FC = () => {
 
                 <Pressable
                   onPress={handleSendOtp}
-                  disabled={loading}
+                  disabled={loading || resendIn > 0}
                   accessibilityRole="button"
+                  accessibilityLabel={resendIn > 0 ? `Resend OTP available in ${resendIn} seconds` : 'Resend OTP'}
                   style={styles.resendBtn}
                 >
                   <Ionicons
@@ -278,7 +287,7 @@ export const LoginOtpScreen: React.FC = () => {
                   <Text
                     style={[styles.resendText, { color: surface.textSecondary }]}
                   >
-                    {t.resendOtpBtn}
+                    {resendIn > 0 ? `Resend OTP in ${resendIn}s` : t.resendOtpBtn}
                   </Text>
                 </Pressable>
               </View>
