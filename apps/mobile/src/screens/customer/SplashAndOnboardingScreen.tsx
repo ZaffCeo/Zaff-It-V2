@@ -1,9 +1,19 @@
-import React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  Animated,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import {
   BRAND_COLORS,
+  GLOW,
   RADII,
   SPACING,
   SURFACE_DARK,
@@ -20,50 +30,90 @@ import { PrimaryButton } from '@/components/StateViews';
 
 const LANGUAGES: AppLanguage[] = ['en', 'hi', 'hi-Latn'];
 
+/**
+ * Premium splash & onboarding (Design System v2).
+ * Full-bleed brand hero: golden infinity logo, ZAFF-IT wordmark and the
+ * Makrana rider mascot over a charcoal-gold cinematic backdrop, followed by
+ * language selection and the golden CTA.
+ */
 export const SplashAndOnboardingScreen: React.FC = () => {
   const language = useAppStore((s) => s.language);
   const setLanguage = useAppStore((s) => s.setLanguage);
   const completeOnboarding = useAppStore((s) => s.completeOnboarding);
   const t = getTranslation(language);
 
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const heroScale = useRef(new Animated.Value(1.04)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(heroOpacity, {
+        toValue: 1,
+        duration: 550,
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroScale, {
+        toValue: 1,
+        duration: 900,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(160),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 420,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [heroOpacity, heroScale, contentOpacity]);
+
   return (
-    <SafeAreaView
-      style={[styles.safe, { backgroundColor: SURFACE_DARK.background }]}
-      edges={['top', 'bottom', 'left', 'right']}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
+    <View style={styles.root}>
+      <StatusBar style="light" />
+      {/* Cinematic hero: logo, wordmark & rider rendered in the artwork */}
+      <Animated.View
+        style={[
+          styles.heroWrap,
+          { opacity: heroOpacity, transform: [{ scale: heroScale }] },
+        ]}
       >
-        <View style={styles.topRow}>
-          <View style={styles.etaBadge}>
-            <Ionicons
-              name="flash"
-              size={14}
-              color={BRAND_COLORS.pureWhite}
-            />
-            <Text style={styles.etaBadgeText}>{t.dynamicEtaBadge}</Text>
+        <Image
+          source={require('../../../assets/splash-rider-hero.png')}
+          style={styles.heroImage}
+          resizeMode="cover"
+          accessibilityLabel="ZAFF-IT — Need It? Zaff-It"
+        />
+        <Animated.View
+          style={[styles.heroFadeBottom, { opacity: contentOpacity }]}
+          pointerEvents="none"
+        />
+      </Animated.View>
+
+      <SafeAreaView style={styles.bottomSheet} edges={['bottom', 'left', 'right']}>
+        <Animated.View
+          style={[styles.bottomContent, { opacity: contentOpacity }]}
+        >
+          <View style={styles.trustRow}>
+            <View style={styles.trustPill}>
+              <Ionicons name="flash" size={13} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.trustText}>{t.dynamicEtaBadge}</Text>
+            </View>
+            <View style={styles.trustPill}>
+              <Ionicons
+                name="shield-checkmark"
+                size={13}
+                color={BRAND_COLORS.goldenYellow}
+              />
+              <Text style={styles.trustText}>100% Secure</Text>
+            </View>
+            <View style={styles.trustPill}>
+              <Ionicons name="cash-outline" size={13} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.trustText}>COD Available</Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.heroCenter}>
-          <View style={styles.logoCard}>
-            <Image
-              source={require('../../../assets/zaff-it-logo.jpg')}
-              style={styles.logoImage}
-              resizeMode="contain"
-              accessibilityLabel="ZAFF-IT Infinity-Z Logo"
-            />
-          </View>
-          <Text style={styles.brandWordmark}>ZAFF-IT</Text>
-          <Text style={styles.cityPill}>MAKRANA PILOT</Text>
-
-          <Text style={styles.tagline}>{t.onboardingTagline}</Text>
-          <Text style={styles.subtext}>{t.onboardingSubtext}</Text>
-        </View>
-
-        <View style={styles.bottomSection}>
           <Text style={styles.langHeading}>{t.languageTitle}</Text>
           <View style={styles.langRow}>
             {LANGUAGES.map((code) => {
@@ -71,7 +121,10 @@ export const SplashAndOnboardingScreen: React.FC = () => {
               return (
                 <Pressable
                   key={code}
-                  onPress={() => setLanguage(code)}
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    setLanguage(code);
+                  }}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   style={({ pressed }) => [
@@ -106,105 +159,84 @@ export const SplashAndOnboardingScreen: React.FC = () => {
 
           <PrimaryButton
             label={t.onboardingCta}
-            onPress={completeOnboarding}
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              completeOnboarding();
+            }}
             mode="dark"
             icon="arrow-forward"
             style={styles.ctaBtn}
           />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+
+          <Text style={styles.footerText}>
+            Makrana Pilot · ZaffmIND Technology
+          </Text>
+        </Animated.View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: {
+  root: {
     flex: 1,
+    backgroundColor: SURFACE_DARK.canvasLowest,
   },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-    padding: SPACING.screenPadding,
+  heroWrap: {
+    flex: 1,
+    backgroundColor: SURFACE_DARK.canvasLowest,
   },
-  topRow: {
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroFadeBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 120,
+    backgroundColor: 'rgba(11,12,14,0.85)',
+  },
+  bottomSheet: {
+    backgroundColor: SURFACE_DARK.canvasLowest,
+    borderTopLeftRadius: RADII.xl,
+    borderTopRightRadius: RADII.xl,
+  },
+  bottomContent: {
+    paddingHorizontal: SPACING.screenPadding,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.lg,
+    gap: SPACING.md,
+  },
+  trustRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingTop: SPACING.sm,
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    justifyContent: 'center',
   },
-  etaBadge: {
+  trustPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    backgroundColor: BRAND_COLORS.electricGreen,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
+    gap: 4,
+    backgroundColor: SURFACE_DARK.surface2,
+    borderColor: SURFACE_DARK.border,
+    borderWidth: 1,
     borderRadius: RADII.full,
+    paddingHorizontal: SPACING.md,
     minHeight: 32,
   },
-  etaBadgeText: {
-    color: BRAND_COLORS.pureWhite,
-    fontSize: TYPOGRAPHY.captionMin.fontSize,
-    fontWeight: '700',
-  },
-  heroCenter: {
-    alignItems: 'center',
-    paddingVertical: SPACING.xl,
-  },
-  logoCard: {
-    width: 148,
-    height: 100,
-    borderRadius: RADII.xl,
-    backgroundColor: '#000000',
-    borderWidth: 1,
-    borderColor: SURFACE_DARK.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginBottom: SPACING.lg,
-  },
-  logoImage: {
-    width: 132,
-    height: 88,
-  },
-  brandWordmark: {
-    color: BRAND_COLORS.goldenYellow,
-    fontSize: TYPOGRAPHY.displayLg.fontSize,
-    lineHeight: TYPOGRAPHY.displayLg.lineHeight,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  cityPill: {
-    marginTop: SPACING.xs,
+  trustText: {
     color: SURFACE_DARK.textSecondary,
     fontSize: TYPOGRAPHY.captionMin.fontSize,
     fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-  tagline: {
-    marginTop: SPACING.xl,
-    color: SURFACE_DARK.textPrimary,
-    fontSize: TYPOGRAPHY.headlineLg.fontSize,
-    lineHeight: TYPOGRAPHY.headlineLg.lineHeight,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  subtext: {
-    marginTop: SPACING.md,
-    color: SURFACE_DARK.textMuted,
-    fontSize: TYPOGRAPHY.bodyMd.fontSize,
-    lineHeight: TYPOGRAPHY.bodyMd.lineHeight,
-    textAlign: 'center',
-    maxWidth: 340,
-  },
-  bottomSection: {
-    gap: SPACING.md,
-    paddingBottom: SPACING.md,
   },
   langHeading: {
     color: SURFACE_DARK.textSecondary,
     fontSize: TYPOGRAPHY.labelMd.fontSize,
     fontWeight: '700',
     textAlign: 'center',
+    marginTop: SPACING.xs,
   },
   langRow: {
     flexDirection: 'row',
@@ -225,6 +257,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   ctaBtn: {
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
+    ...GLOW.goldSoft,
+  },
+  footerText: {
+    color: SURFACE_DARK.textMuted,
+    fontSize: TYPOGRAPHY.captionMin.fontSize,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
 });

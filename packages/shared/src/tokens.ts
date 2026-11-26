@@ -244,6 +244,87 @@ export const Z_INDEX = {
   emergencySos: 60,
 } as const;
 
+/**
+ * v2 Premium Brand Extensions
+ * Golden gradient palettes, glow shadows, and motion timing used across
+ * the premium 2026 visual refresh (splash, tab bar, promo surfaces, CTAs).
+ */
+export const BRAND_GRADIENTS = {
+  /** Signature golden CTA gradient (light → deep gold) */
+  gold: ['#FFD633', '#FFC703', '#F2B705'] as const,
+  /** Warm cream → gold for promo banners / Ask Zaffy card */
+  goldWarm: ['#FFF3C4', '#FFD633'] as const,
+  /** Deep charcoal → pure black for dark hero surfaces */
+  charcoal: ['#1A1D21', '#0B0C0E'] as const,
+  /** Golden glow halo for splash / dark headers */
+  goldHalo: ['#2A2308', '#121416'] as const,
+  /** Emerald gradient for success / online states */
+  green: ['#16A34A', '#0C831F'] as const,
+} as const;
+
+export const GLOW = {
+  gold: {
+    shadowColor: '#FFC703',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.38,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  goldSoft: {
+    shadowColor: '#FFC703',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  green: {
+    shadowColor: '#0C831F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.30,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dark: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+} as const;
+
+export const MOTION = {
+  fast: 120,
+  base: 180,
+  smooth: 260,
+  slow: 420,
+} as const;
+
+/** Emoji-based product art map for lightweight premium product tiles. */
+export const PRODUCT_ART: Record<string, string> = {
+  tomato: '🍅', banana: '🍌', rice: '🌾', milk: '🥛', onion: '🧅',
+  potato: '🥔', apple: '🍎', bread: '🍞', egg: '🥚', oil: '🛢️',
+  atta: '🌾', tea: '🍵', sugar: '🧂', snack: '🍿', cold_drink: '🥤',
+  vegetable: '🥬', fruit: '🍎', dairy: '🧈', grocery: '🛒', home_care: '🧴',
+} as const;
+
+export function pickProductArt(name: string): string {
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(PRODUCT_ART)) {
+    if (lower.includes(key)) return PRODUCT_ART[key];
+  }
+  if (lower.includes('paneer') || lower.includes('cheese')) return '🧈';
+  if (lower.includes('curd') || lower.includes('dahi')) return '🥛';
+  if (lower.includes('chilli') || lower.includes('mirch')) return '🌶️';
+  if (lower.includes('salt')) return '🧂';
+  if (lower.includes('biscuit') || lower.includes('parle')) return '🍪';
+  if (lower.includes('maggi') || lower.includes('noodle')) return '🍜';
+  if (lower.includes('soap') || lower.includes('surf') || lower.includes('detergent')) return '🧼';
+  if (lower.includes('shampoo')) return '🧴';
+  if (lower.includes('ghee')) return '🧈';
+  return '🛒';
+}
+
 export const THEME = {
   brand: BRAND_COLORS,
   dark: SURFACE_DARK,
@@ -257,6 +338,10 @@ export const THEME = {
   touchTargets: TOUCH_TARGETS,
   elevation: ELEVATION,
   zIndex: Z_INDEX,
+  gradients: BRAND_GRADIENTS,
+  glow: GLOW,
+  motion: MOTION,
+  productArt: PRODUCT_ART,
 } as const;
 
 export type ZaffTheme = typeof THEME;

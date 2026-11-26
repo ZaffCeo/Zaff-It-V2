@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     borderColor: SURFACE_DARK.border,
     paddingHorizontal: SPACING.md,
     color: SURFACE_DARK.textPrimary,
-    fontSize: TYPOGRAPHY.bodySmall,
+    fontSize: TYPOGRAPHY.bodyMd.fontSize,
   },
   barcodeBtn: {
     minHeight: TOUCH_TARGETS.minSize,
@@ -651,13 +651,13 @@ const styles = StyleSheet.create({
   },
   barcodeBtnText: {
     color: BRAND_COLORS.charcoalBlack,
-    fontSize: TYPOGRAPHY.captionMin,
+    fontSize: TYPOGRAPHY.captionMin.fontSize,
     fontWeight: '800',
   },
   barcodeStatusText: {
     marginTop: SPACING.xs,
     color: BRAND_COLORS.goldenYellow,
-    fontSize: TYPOGRAPHY.captionMin,
+    fontSize: TYPOGRAPHY.captionMin.fontSize,
   },
 });
 

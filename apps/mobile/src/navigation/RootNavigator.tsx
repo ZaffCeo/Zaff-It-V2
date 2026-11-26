@@ -1,18 +1,8 @@
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import {
-  BRAND_COLORS,
-  RADII,
-  SPACING,
-  SURFACE_DARK,
-  SURFACE_LIGHT,
-  TOUCH_TARGETS,
-  TYPOGRAPHY,
-} from '@zaff-it/shared/tokens';
 import { useAppStore, type UserRole } from '@/store/useAppStore';
+import { PremiumTabBar } from '@/components/PremiumTabBar';
 import { SplashAndOnboardingScreen } from '@/screens/customer/SplashAndOnboardingScreen';
 import { LoginOtpScreen } from '@/screens/customer/LoginOtpScreen';
 import { CustomerHomeScreen } from '@/screens/customer/CustomerHomeScreen';
@@ -85,32 +75,15 @@ const RiderTab = createBottomTabNavigator<RiderTabParamList>();
 const AdminTab = createBottomTabNavigator<AdminTabParamList>();
 
 const CustomerTabs: React.FC = () => {
-  const colorScheme = useAppStore((s) => s.colorScheme);
   const cartCount = useAppStore((s) =>
     s.cartItems.reduce((sum, item) => sum + item.quantity, 0),
   );
-  const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
 
   return (
     <CustomerTab.Navigator
+      tabBar={(props) => <PremiumTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor:
-          colorScheme === 'dark'
-            ? BRAND_COLORS.goldenYellow
-            : BRAND_COLORS.charcoalBlack,
-        tabBarInactiveTintColor: surface.textMuted,
-        tabBarStyle: {
-          backgroundColor: surface.surface1,
-          borderTopColor: surface.border,
-          height: TOUCH_TARGETS.tabBarHeight,
-          paddingBottom: SPACING.sm,
-          paddingTop: SPACING.xs,
-        },
-        tabBarLabelStyle: {
-          fontSize: TYPOGRAPHY.captionMin.fontSize,
-          fontWeight: '700',
-        },
       }}
     >
       <CustomerTab.Screen
@@ -118,13 +91,6 @@ const CustomerTabs: React.FC = () => {
         component={CustomerHomeScreen}
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'home' : 'home-outline'}
-              size={size}
-              color={focused ? BRAND_COLORS.charcoalBlack : color}
-            />
-          ),
         }}
       />
       <CustomerTab.Screen
@@ -132,13 +98,6 @@ const CustomerTabs: React.FC = () => {
         component={CustomerHomeScreen}
         options={{
           title: 'Explore',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'grid' : 'grid-outline'}
-              size={size}
-              color={color}
-            />
-          ),
         }}
       />
       <CustomerTab.Screen
@@ -146,13 +105,6 @@ const CustomerTabs: React.FC = () => {
         component={OrdersAndSupportScreen}
         options={{
           title: 'Orders',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'clipboard' : 'clipboard-outline'}
-              size={size}
-              color={color}
-            />
-          ),
         }}
       />
       <CustomerTab.Screen
@@ -161,18 +113,6 @@ const CustomerTabs: React.FC = () => {
         options={{
           title: 'Basket',
           tabBarBadge: cartCount > 0 ? cartCount : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: BRAND_COLORS.electricGreen,
-            color: BRAND_COLORS.pureWhite,
-            fontSize: TYPOGRAPHY.captionMin.fontSize,
-          },
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'cart' : 'cart-outline'}
-              size={size}
-              color={color}
-            />
-          ),
         }}
       />
       <CustomerTab.Screen
@@ -180,20 +120,6 @@ const CustomerTabs: React.FC = () => {
         component={AccountComplianceScreen}
         options={{
           title: 'ZAFF',
-          tabBarIcon: ({ focused }) => (
-            <View
-              style={[
-                styles.zaffTabIconWrap,
-                focused && styles.zaffTabIconWrapActive,
-              ]}
-            >
-              <Image
-                source={require('../../assets/zaff-it-logo.jpg')}
-                style={styles.zaffTabIcon}
-                resizeMode="contain"
-              />
-            </View>
-          ),
         }}
       />
     </CustomerTab.Navigator>
@@ -209,230 +135,97 @@ const CustomerStack: React.FC = () => (
   </CustomerStackNav.Navigator>
 );
 
-const MerchantTabs: React.FC = () => {
-  const colorScheme = useAppStore((s) => s.colorScheme);
-  const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
-
-  return (
-    <MerchantTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: BRAND_COLORS.electricGreen,
-        tabBarInactiveTintColor: surface.textMuted,
-        tabBarStyle: {
-          backgroundColor: surface.surface1,
-          borderTopColor: surface.border,
-          height: TOUCH_TARGETS.tabBarHeight,
-          paddingBottom: SPACING.sm,
-          paddingTop: SPACING.xs,
-        },
-        tabBarLabelStyle: {
-          fontSize: TYPOGRAPHY.captionMin.fontSize,
-          fontWeight: '700',
-        },
-      }}
+const MerchantTabs: React.FC = () => (
+  <MerchantTab.Navigator
+    tabBar={(props) => <PremiumTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+  >
+    <MerchantTab.Screen
+      name="MerchantOrders"
+      options={{ title: 'Orders' }}
     >
-      <MerchantTab.Screen
-        name="MerchantOrders"
-        options={{
-          title: 'Orders',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <MerchantOrdersScreen initialState="ready" />}
-      </MerchantTab.Screen>
-      <MerchantTab.Screen
-        name="MerchantCatalog"
-        options={{
-          title: 'Catalog',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cube-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <MerchantInventoryScreen initialState="ready" />}
-      </MerchantTab.Screen>
-      <MerchantTab.Screen
-        name="MerchantKhata"
-        options={{
-          title: 'Khata',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {({ navigation }) => (
-          <MerchantDashboardScreen
-            initialState="ready"
-            onOpenOrders={() => navigation.navigate('MerchantOrders')}
-            onOpenInventory={() => navigation.navigate('MerchantCatalog')}
-          />
-        )}
-      </MerchantTab.Screen>
-      <MerchantTab.Screen
-        name="MerchantStore"
-        options={{
-          title: 'Store',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {({ navigation }) => (
-          <MerchantDashboardScreen
-            initialState="ready"
-            onOpenOrders={() => navigation.navigate('MerchantOrders')}
-            onOpenInventory={() => navigation.navigate('MerchantCatalog')}
-          />
-        )}
-      </MerchantTab.Screen>
-    </MerchantTab.Navigator>
-  );
-};
-
-const RiderTabs: React.FC = () => {
-  const colorScheme = useAppStore((s) => s.colorScheme);
-  const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
-
-  return (
-    <RiderTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: BRAND_COLORS.goldenYellow,
-        tabBarInactiveTintColor: surface.textMuted,
-        tabBarStyle: {
-          backgroundColor: surface.surface1,
-          borderTopColor: surface.border,
-          height: TOUCH_TARGETS.tabBarHeight,
-          paddingBottom: SPACING.sm,
-          paddingTop: SPACING.xs,
-        },
-        tabBarLabelStyle: {
-          fontSize: TYPOGRAPHY.captionMin.fontSize,
-          fontWeight: '700',
-        },
-      }}
+      {() => <MerchantOrdersScreen initialState="ready" />}
+    </MerchantTab.Screen>
+    <MerchantTab.Screen
+      name="MerchantCatalog"
+      options={{ title: 'Inventory' }}
     >
-      <RiderTab.Screen
-        name="RiderDuty"
-        options={{
-          title: 'Duty',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bicycle-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {({ navigation }) => (
-          <RiderTasksScreen
-            initialState="ready"
-            initialOnline
-            onProceedToOtp={() => navigation.navigate('RiderEarnings')}
-          />
-        )}
-      </RiderTab.Screen>
-      <RiderTab.Screen
-        name="RiderEarnings"
-        options={{
-          title: 'Handover',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cash-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {({ navigation }) => (
-          <RiderDeliveryOtpScreen
-            initialState="ready"
-            onFinishHandover={() => navigation.navigate('RiderDuty')}
-          />
-        )}
-      </RiderTab.Screen>
-      <RiderTab.Screen
-        name="RiderProfile"
-        options={{
-          title: 'KYC',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="shield-checkmark-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <RiderShiftKycScreen initialState="ready" />}
-      </RiderTab.Screen>
-    </RiderTab.Navigator>
-  );
-};
-
-const AdminTabs: React.FC = () => {
-  const colorScheme = useAppStore((s) => s.colorScheme);
-  const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
-
-  return (
-    <AdminTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: BRAND_COLORS.electricGreen,
-        tabBarInactiveTintColor: surface.textMuted,
-        tabBarStyle: {
-          backgroundColor: surface.surface1,
-          borderTopColor: surface.border,
-          height: TOUCH_TARGETS.tabBarHeight,
-          paddingBottom: SPACING.sm,
-          paddingTop: SPACING.xs,
-        },
-        tabBarLabelStyle: {
-          fontSize: TYPOGRAPHY.captionMin.fontSize,
-          fontWeight: '700',
-        },
-      }}
+      {() => <MerchantInventoryScreen initialState="ready" />}
+    </MerchantTab.Screen>
+    <MerchantTab.Screen
+      name="MerchantKhata"
+      options={{ title: 'Khata' }}
     >
-      <AdminTab.Screen
-        name="AdminRadar"
-        options={{
-          title: 'Radar',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="pulse-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <AdminOpsBoardScreen initialState="ready" />}
-      </AdminTab.Screen>
-      <AdminTab.Screen
-        name="AdminMerchants"
-        options={{
-          title: 'Merchants',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="business-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <AdminOpsBoardScreen initialState="ready" />}
-      </AdminTab.Screen>
-      <AdminTab.Screen
-        name="AdminVault"
-        options={{
-          title: 'COD Vault',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="lock-closed-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <AdminOpsBoardScreen initialState="ready" />}
-      </AdminTab.Screen>
-      <AdminTab.Screen
-        name="AdminGeofence"
-        options={{
-          title: 'Geofence',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
-          ),
-        }}
-      >
-        {() => <AdminOpsBoardScreen initialState="ready" />}
-      </AdminTab.Screen>
-    </AdminTab.Navigator>
-  );
-};
+      {({ navigation }) => (
+        <MerchantDashboardScreen
+          initialState="ready"
+          onOpenOrders={() => navigation.navigate('MerchantOrders')}
+          onOpenInventory={() => navigation.navigate('MerchantCatalog')}
+        />
+      )}
+    </MerchantTab.Screen>
+    <MerchantTab.Screen
+      name="MerchantStore"
+      options={{ title: 'Store' }}
+    >
+      {({ navigation }) => (
+        <MerchantDashboardScreen
+          initialState="ready"
+          onOpenOrders={() => navigation.navigate('MerchantOrders')}
+          onOpenInventory={() => navigation.navigate('MerchantCatalog')}
+        />
+      )}
+    </MerchantTab.Screen>
+  </MerchantTab.Navigator>
+);
+
+const RiderTabs: React.FC = () => (
+  <RiderTab.Navigator
+    tabBar={(props) => <PremiumTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+  >
+    <RiderTab.Screen name="RiderDuty" options={{ title: 'Duty' }}>
+      {({ navigation }) => (
+        <RiderTasksScreen
+          initialState="ready"
+          initialOnline
+          onProceedToOtp={() => navigation.navigate('RiderEarnings')}
+        />
+      )}
+    </RiderTab.Screen>
+    <RiderTab.Screen name="RiderEarnings" options={{ title: 'Handover' }}>
+      {({ navigation }) => (
+        <RiderDeliveryOtpScreen
+          initialState="ready"
+          onFinishHandover={() => navigation.navigate('RiderDuty')}
+        />
+      )}
+    </RiderTab.Screen>
+    <RiderTab.Screen name="RiderProfile" options={{ title: 'KYC' }}>
+      {() => <RiderShiftKycScreen initialState="ready" />}
+    </RiderTab.Screen>
+  </RiderTab.Navigator>
+);
+
+const AdminTabs: React.FC = () => (
+  <AdminTab.Navigator
+    tabBar={(props) => <PremiumTabBar {...props} />}
+    screenOptions={{ headerShown: false }}
+  >
+    <AdminTab.Screen name="AdminRadar" options={{ title: 'Radar' }}>
+      {() => <AdminOpsBoardScreen initialState="ready" />}
+    </AdminTab.Screen>
+    <AdminTab.Screen name="AdminMerchants" options={{ title: 'Merchants' }}>
+      {() => <AdminOpsBoardScreen initialState="ready" />}
+    </AdminTab.Screen>
+    <AdminTab.Screen name="AdminVault" options={{ title: 'COD Vault' }}>
+      {() => <AdminOpsBoardScreen initialState="ready" />}
+    </AdminTab.Screen>
+    <AdminTab.Screen name="AdminGeofence" options={{ title: 'Geofence' }}>
+      {() => <AdminOpsBoardScreen initialState="ready" />}
+    </AdminTab.Screen>
+  </AdminTab.Navigator>
+);
 
 function getRoleRootRoute(role: UserRole): keyof RootStackParamList {
   switch (role) {
@@ -477,25 +270,3 @@ export const RootNavigator: React.FC = () => {
     </RootStack.Navigator>
   );
 };
-
-const styles = StyleSheet.create({
-  zaffTabIconWrap: {
-    width: 34,
-    height: 24,
-    borderRadius: RADII.full,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: BRAND_COLORS.goldenYellow,
-  },
-  zaffTabIconWrapActive: {
-    borderWidth: 2,
-    borderColor: BRAND_COLORS.goldenYellow,
-  },
-  zaffTabIcon: {
-    width: 30,
-    height: 20,
-  },
-});

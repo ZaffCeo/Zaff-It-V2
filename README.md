@@ -9,6 +9,21 @@ ZAFF-IT is a unified, multi-surface hyperlocal quick-commerce platform built on 
 
 ---
 
+## ✨ Premium UI v2 (November 2026 Refresh)
+
+The full surface set has been upgraded to a **premium, smooth, professional** visual language built directly from the founder's reference designs:
+
+- **Cinematic dark splash** — golden infinity wordmark, Makrana rider mascot hero art, animated fade-in, language picker & trust pills
+- **Golden signature tab bar** — active-route gold underline indicator, black infinity-logo ZAFF pill, green basket badge, dark variant for Merchant/Rider/Admin consoles
+- **Ask Zaffy card** — 3D black-gold Zaffy mascot (custom brand render), warm golden gradient surface with glow
+- **Promo carousel banner** — real brand banner art, Sponsored pill, Shop Now CTA
+- **Emoji product art tiles** — lightweight premium product visuals with ETA chips and green discount badges
+- **Merchant Partner console** — black KPI stats bar, LIVE badge + logo tile header, golden glow CTAs
+- Design tokens extended: `BRAND_GRADIENTS`, `GLOW`, `MOTION`, `PRODUCT_ART` (`packages/shared/src/tokens.ts`)
+- **`BACKEND_CONNECT.md`** — step-by-step Hindi+English backend setup guide (Supabase → OTP auth → SQL → Edge Functions → Razorpay → R2 → Gemini → EAS)
+
+---
+
 ## Architecture Overview
 
 ```mermaid
