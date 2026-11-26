@@ -334,7 +334,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .from('catalog_ingest_queue')
     .update({ status: 'processing', updated_at: new Date().toISOString() })
     .eq('status', 'pending')
-    .in('job_type', ['off_barcode', 'off_search', 'wikimedia_image'])
+    .in('job_type', ['off_barcode', 'off_search', 'wikimedia_image', 'agmarknet_price'])
     .order('priority', { ascending: true })
     .limit(body.limit)
     .select('*');
@@ -365,7 +365,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   for (const job of jobs as {
     id: string;
     job_type: string;
-    payload: { barcode?: string; query?: string; product_id?: string; image_query?: string };
+    payload: { barcode?: string; query?: string; product_id?: string; image_query?: string; commodity?: string };
   }[]) {
     try {
       // ---------------- off_barcode ----------------
@@ -555,6 +555,72 @@ Deno.serve(async (req: Request): Promise<Response> => {
           }).eq('id', job.id);
           results.push({ job: job.id, status: 'needs_review', reason: 'commons_empty' });
         }
+        continue;
+      }
+
+      // ---------------- agmarknet_price ----------------
+      // data.gov.in AGMARKNET daily mandi prices (GODL license, attribution
+      // seeded in sources/source_licenses). Dormant until the founder sets
+      // DATA_GOV_IN_API_KEY; jobs then upsert mandi_prices (raw commodity
+      // level) — product mapping is a separate reviewable step, never forced.
+      if (job.job_type === 'agmarknet_price') {
+        const apiKey = Deno.env.get('DATA_GOV_IN_API_KEY');
+        if (!apiKey) {
+          await db.from('catalog_ingest_queue').update({
+            status: 'needs_review',
+            last_error: 'missing_data_gov_in_api_key (register free at data.gov.in)',
+            updated_at: new Date().toISOString(),
+          }).eq('id', job.id);
+          results.push({ job: job.id, status: 'needs_review', reason: 'missing_api_key' });
+          continue;
+        }
+        const commodity = job.payload.commodity ?? '';
+        const params = new URLSearchParams({
+          'api-key': apiKey,
+          format: 'json',
+          limit: '200',
+        });
+        if (commodity) params.set('filters[commodity]', commodity);
+        const agResp = await fetch(
+          `https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?${params.toString()}`,
+          { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) },
+        );
+        if (!agResp.ok) throw new Error(`agmarknet HTTP ${agResp.status}`);
+        const ag = await agResp.json();
+        const records = Array.isArray(ag?.records) ? ag.records : [];
+        let upserted = 0;
+        for (const rec of records as {
+          commodity?: string; variety?: string; grade?: string; market?: string;
+          district?: string; state?: string; min_price?: string; modal_price?: string;
+          max_price?: string; arrival_date?: string;
+        }[]) {
+          const num = (v?: string) => (v && !isNaN(parseFloat(v)) ? parseFloat(v) : null);
+          const row = {
+            commodity: (rec.commodity ?? '').trim(),
+            variety: (rec.variety ?? '').trim() || null,
+            grade: (rec.grade ?? '').trim() || null,
+            mandi: (rec.market ?? '').trim(),
+            district: (rec.district ?? '').trim() || null,
+            state: (rec.state ?? '').trim() || null,
+            min_price: num(rec.min_price),
+            modal_price: num(rec.modal_price),
+            max_price: num(rec.max_price),
+            price_unit: 'quintal',
+            arrival_date: (rec.arrival_date ?? '').split('T')[0] || null as string | null,
+            source_record: `agmarknet:${(rec.commodity ?? '')}:${(rec.market ?? '')}:${(rec.arrival_date ?? '')}`,
+          };
+          if (!row.commodity || !row.mandi || !row.arrival_date) continue;
+          const { error: upErr } = await db.from('mandi_prices').upsert(row, {
+            onConflict: 'commodity,variety,grade,mandi,arrival_date',
+          });
+          if (!upErr) upserted += 1;
+        }
+        await db.from('catalog_ingest_queue').update({
+          status: 'done',
+          result: { records_seen: records.length, mandi_rows_upserted: upserted, license: 'GODL-India' },
+          updated_at: new Date().toISOString(),
+        }).eq('id', job.id);
+        results.push({ job: job.id, status: 'done', upserted });
         continue;
       }
 

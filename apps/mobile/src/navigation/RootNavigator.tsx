@@ -22,6 +22,7 @@ import { RiderShiftKycScreen } from '@/screens/rider/RiderShiftKycScreen';
 import { RiderTasksScreen } from '@/screens/rider/RiderTasksScreen';
 import { RiderDeliveryOtpScreen } from '@/screens/rider/RiderDeliveryOtpScreen';
 import { AdminOpsBoardScreen } from '@/screens/admin/AdminOpsBoardScreen';
+import { CatalogReviewScreen } from '@/screens/admin/CatalogReviewScreen';
 import { WalletScreen } from '@/screens/customer/WalletScreen';
 
 export type RootStackParamList = {
@@ -64,6 +65,7 @@ export type RiderTabParamList = {
 
 export type AdminTabParamList = {
   AdminRadar: undefined;
+  AdminCatalog: undefined;
   AdminMerchants: undefined;
   AdminVault: undefined;
   AdminGeofence: undefined;
@@ -217,6 +219,9 @@ const AdminTabs: React.FC = () => (
   >
     <AdminTab.Screen name="AdminRadar" options={{ title: 'Radar' }}>
       {() => <AdminOpsBoardScreen initialState="ready" />}
+    </AdminTab.Screen>
+    <AdminTab.Screen name="AdminCatalog" options={{ title: 'Catalog' }}>
+      {() => <CatalogReviewScreen />}
     </AdminTab.Screen>
     <AdminTab.Screen name="AdminMerchants" options={{ title: 'Merchants' }}>
       {() => <AdminOpsBoardScreen initialState="ready" />}
