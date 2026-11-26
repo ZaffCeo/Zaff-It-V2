@@ -22,6 +22,7 @@ import { RiderShiftKycScreen } from '@/screens/rider/RiderShiftKycScreen';
 import { RiderTasksScreen } from '@/screens/rider/RiderTasksScreen';
 import { RiderDeliveryOtpScreen } from '@/screens/rider/RiderDeliveryOtpScreen';
 import { AdminOpsBoardScreen } from '@/screens/admin/AdminOpsBoardScreen';
+import { WalletScreen } from '@/screens/customer/WalletScreen';
 
 export type RootStackParamList = {
   SplashAndOnboarding: undefined;
@@ -35,6 +36,7 @@ export type RootStackParamList = {
 export type CustomerStackParamList = {
   CustomerTabs: undefined;
   AddressBook: undefined;
+  Wallet: undefined;
   ProductDetail: { product?: ProductDetailInput } | undefined;
   OrderTracking: { orderId?: string } | undefined;
 };
@@ -130,6 +132,7 @@ const CustomerStack: React.FC = () => (
   <CustomerStackNav.Navigator screenOptions={{ headerShown: false }}>
     <CustomerStackNav.Screen name="CustomerTabs" component={CustomerTabs} />
     <CustomerStackNav.Screen name="AddressBook" component={AddressBookScreen} />
+    <CustomerStackNav.Screen name="Wallet" component={WalletScreen} />
     <CustomerStackNav.Screen name="ProductDetail" component={ProductDetailScreen} />
     <CustomerStackNav.Screen name="OrderTracking" component={OrderTrackingScreen} />
   </CustomerStackNav.Navigator>

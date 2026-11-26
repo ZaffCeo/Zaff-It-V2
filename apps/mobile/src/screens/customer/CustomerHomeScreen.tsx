@@ -16,6 +16,8 @@ import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { CustomerStackParamList } from '@/navigation/RootNavigator';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   BRAND_COLORS,
@@ -37,7 +39,7 @@ import {
   type CartItem,
 } from '@/store/useAppStore';
 import { getTranslation } from '@/i18n/translations';
-import { isSupabaseConfigured, supabase, SUPABASE_FUNCTIONS_URL } from '@/services/supabase';
+import { isSupabaseConfigured, supabase, SUPABASE_ANON_KEY, SUPABASE_FUNCTIONS_URL } from '@/services/supabase';
 import {
   EmptyState,
   ErrorRetryBanner,
@@ -230,7 +232,7 @@ const PROMO_SLIDES: PromoSlide[] = [
 
 export const CustomerHomeScreen: React.FC = () => {
   const navigation =
-    useNavigation<BottomTabNavigationProp<CustomerTabParamList>>();
+    useNavigation<BottomTabNavigationProp<CustomerTabParamList> & NativeStackNavigationProp<CustomerStackParamList>>();
   const language = useAppStore((s) => s.language);
   const colorScheme = useAppStore((s) => s.colorScheme);
   const zone = useAppStore((s) => s.zone);
@@ -396,8 +398,10 @@ export const CustomerHomeScreen: React.FC = () => {
     setZaffyLoading(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token ?? '';
-      const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/zaffy-ai`, {
+      // Real JWT when signed in; anon key when in demo session (no SMS provider
+      // yet) — the edge function validates either and serves grounded answers.
+      const token = sessionData.session?.access_token || SUPABASE_ANON_KEY;
+      const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/zaffy-ai-assistant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -406,6 +410,7 @@ export const CustomerHomeScreen: React.FC = () => {
         body: JSON.stringify({
           query: trimmed,
           locale: language === 'hi' ? 'hi-IN' : 'en-IN',
+          ...(products[0]?.store_id ? { store_id: products[0].store_id } : {}),
         }),
       });
       const json = (await response.json()) as { reply?: string; error?: { message?: string } };
@@ -612,6 +617,14 @@ export const CustomerHomeScreen: React.FC = () => {
         </View>
 
         <View style={styles.headerActions}>
+          <Pressable
+            onPress={() => navigation.navigate('Wallet')}
+            accessibilityRole="button"
+            accessibilityLabel="Z-Coins Wallet"
+            style={styles.coinsChip}
+          >
+            <Text style={styles.coinsChipText}>🪙 425</Text>
+          </Pressable>
           <Pressable
             onPress={() => navigation.navigate('TrackingTab')}
             accessibilityRole="button"
@@ -1194,6 +1207,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
+  },
+  coinsChip: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: '#FFC703',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+  },
+  coinsChipText: {
+    fontSize: 12,
+    fontWeight: '900' as const,
+    color: '#121416',
+    letterSpacing: 0.2,
   },
   bellBtn: {
     minWidth: TOUCH_TARGETS.minSize,

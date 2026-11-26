@@ -163,7 +163,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
               .insert({
                 order_id: existingOrder.id,
                 provider: 'razorpay',
-                method: 'razorpay',
                 amount_paise: existingOrder.total_paise,
                 currency: 'INR',
                 status: 'created',

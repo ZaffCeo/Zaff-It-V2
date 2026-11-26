@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL =
   process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co';
-const SUPABASE_ANON_KEY =
+const SUPABASE_ANON_KEY_VALUE =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key';
 
 /**
@@ -36,7 +36,7 @@ const ExpoSecureStoreAdapter = {
 
 export const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY,
+  SUPABASE_ANON_KEY_VALUE,
   {
     auth: {
       storage: ExpoSecureStoreAdapter,
@@ -47,6 +47,7 @@ export const supabase: SupabaseClient = createClient(
   },
 );
 
+export const SUPABASE_ANON_KEY = SUPABASE_ANON_KEY_VALUE;
 export const SUPABASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
 export function isSupabaseConfigured(): boolean {
