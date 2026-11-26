@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { lookupBarcodeOpenFoodFacts } from '@/services/openFoodFacts';
+import { lookupBarcodeAny } from '@/services/productLookup';
 import {
   BRAND_COLORS,
   RADII,
@@ -119,9 +119,9 @@ export const MerchantInventoryScreen: React.FC<MerchantInventoryScreenProps> = (
     setBarcodeLoading(true);
     setBarcodeStatus(null);
     try {
-      const found = await lookupBarcodeOpenFoodFacts(code);
+      const found = await lookupBarcodeAny(code);
       if (!found) {
-        setBarcodeStatus('Barcode not found on Open Food Facts India. Add manually.');
+        setBarcodeStatus('Barcode not found (Food Facts, Products Facts & UPCitemdb). Add manually.');
       } else {
         const nextItem: StoreProductItem = {
           id: `sp_off_${found.barcode}`,
