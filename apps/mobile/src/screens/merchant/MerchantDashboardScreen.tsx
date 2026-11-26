@@ -23,6 +23,7 @@ import {
   TOUCH_TARGETS,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { MerchantInsightsCard } from '@/screens/merchant/MerchantInsightsCard';
 
 export type ScreenLoadState = 'ready' | 'loading' | 'empty' | 'error';
 
@@ -319,6 +320,9 @@ export const MerchantDashboardScreen: React.FC<MerchantDashboardScreenProps> = (
             </View>
           </View>
         </View>
+
+        {/* Aaj ka Intelligence (live RPC + demo fallback) */}
+        <MerchantInsightsCard />
 
         {/* Active SLA Timer Banner */}
         <View

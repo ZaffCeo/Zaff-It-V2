@@ -129,26 +129,26 @@ begin
     '[]'::jsonb
   ) into v_top_today
   from (
-    select oi.product_name as name, sum(oi.qty) as qty, sum(oi.line_total) as revenue_paise
+    select oi.product_name_snapshot as name, sum(oi.qty) as qty, sum(oi.line_total_paise) as revenue_paise
     from public.order_items oi
     join public.orders o on o.id = oi.order_id
     where o.store_id = p_store_id
       and o.status not in ('cancelled', 'refunded')
       and o.placed_at >= date_trunc('day', now())
-    group by oi.product_name
+    group by oi.product_name_snapshot
     order by qty desc
     limit 5
   ) t;
 
   select coalesce(jsonb_agg(t order by t.qty desc), '[]'::jsonb) into v_top_7d
   from (
-    select oi.product_name as name, sum(oi.qty) as qty, sum(oi.line_total) as revenue_paise
+    select oi.product_name_snapshot as name, sum(oi.qty) as qty, sum(oi.line_total_paise) as revenue_paise
     from public.order_items oi
     join public.orders o on o.id = oi.order_id
     where o.store_id = p_store_id
       and o.status not in ('cancelled', 'refunded')
       and o.placed_at >= now() - interval '7 days'
-    group by oi.product_name
+    group by oi.product_name_snapshot
     order by qty desc
     limit 5
   ) t;

@@ -185,7 +185,12 @@ export const LoginOtpScreen: React.FC = () => {
       let demoRole: UserRole | null = null;
       const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
       if (isDevelopmentEnv && typeof window !== 'undefined') {
-        const param = new URLSearchParams(window.location.search).get('role');
+        // Role comes from ?role=<x> OR path deep-link /admin /merchant /rider
+        // (the web admin tower entry: zaff-it.vercel.app/admin).
+        const param =
+          new URLSearchParams(window.location.search).get('role') ??
+          window.location.pathname.match(/^\/(merchant|rider|admin)\b/i)?.[1]?.toLowerCase() ??
+          null;
         if (param === 'merchant' || param === 'rider' || param === 'admin') {
           demoRole = param;
         }
