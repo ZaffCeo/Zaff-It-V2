@@ -39,6 +39,10 @@ import {
   LoadingSkeleton,
   PrimaryButton,
 } from '@/components/StateViews';
+import {
+  FreeDeliveryProgressBar,
+  SavingsChip,
+} from '@/components/ui/PremiumKit';
 import type { CustomerTabParamList } from '@/navigation/RootNavigator';
 
 type PaymentMethod = 'razorpay' | 'cod';
@@ -546,6 +550,16 @@ export const CartCheckoutScreen: React.FC = () => {
                 </View>
               </View>
 
+              {activeTotals.deliveryFeePaise > 0 ? (
+                <FreeDeliveryProgressBar
+                  currentPaise={activeTotals.subtotalPaise - activeTotals.discountPaise}
+                  thresholdPaise={
+                    activeTotals.subtotalPaise + activeTotals.deliveryFeePaise
+                  }
+                />
+              ) : null}
+              <SavingsChip savedPaise={activeTotals.discountPaise} />
+
               <View style={styles.billLine}>
                 <Text style={[styles.billLabel, { color: surface.textSecondary }]}>
                   {t.subtotalLabel}
@@ -617,12 +631,18 @@ export const CartCheckoutScreen: React.FC = () => {
                   title: t.razorpayTitle,
                   subtitle: t.razorpaySubtitle,
                   icon: 'card-outline' as const,
+                  badge:
+                    activeTotals.subtotalPaise - activeTotals.discountPaise <=
+                    100000
+                      ? 'UPI Lite · PIN-free ≤ ₹1,000'
+                      : 'UPI · Fastest checkout',
                 },
                 {
                   id: 'cod' as PaymentMethod,
                   title: t.codTitle,
                   subtitle: t.codSubtitle,
                   icon: 'cash-outline' as const,
+                  badge: null,
                 },
               ] as const
             ).map((option) => {
@@ -657,6 +677,11 @@ export const CartCheckoutScreen: React.FC = () => {
                     <Text style={[styles.paymentSub, { color: surface.textMuted }]}>
                       {option.subtitle}
                     </Text>
+                    {option.badge ? (
+                      <View style={styles.upiBadge}>
+                        <Text style={styles.upiBadgeText}>{option.badge}</Text>
+                      </View>
+                    ) : null}
                   </View>
                   <Ionicons
                     name={selected ? 'radio-button-on' : 'radio-button-off'}
@@ -889,6 +914,22 @@ const styles = StyleSheet.create({
   paymentTitle: {
     fontSize: TYPOGRAPHY.labelLg.fontSize,
     fontWeight: '700',
+  },
+  upiBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    backgroundColor: 'rgba(255,199,3,0.12)',
+    borderColor: 'rgba(255,199,3,0.4)',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  upiBadgeText: {
+    color: BRAND_COLORS.goldenYellow,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   paymentSub: {
     fontSize: TYPOGRAPHY.captionMin.fontSize,

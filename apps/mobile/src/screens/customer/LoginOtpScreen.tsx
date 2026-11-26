@@ -79,7 +79,18 @@ export const LoginOtpScreen: React.FC = () => {
     }
 
     if (!isSupabaseConfigured()) {
-      setSession('dev-customer-makrana', normalizedPhone, 'customer');
+      // AUD-LOW-6: demo role switch allowed ONLY in development builds with
+      // no backend configured — never when EXPO_PUBLIC_ENV is staging/production.
+      let demoRole: UserRole | null = null;
+      const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
+      if (isDevelopmentEnv && typeof window !== 'undefined') {
+        const param = new URLSearchParams(window.location.search).get('role');
+        if (param === 'merchant' || param === 'rider' || param === 'admin') {
+          demoRole = param;
+        }
+      }
+      const role: UserRole = demoRole ?? 'customer';
+      setSession(`dev-${role}-makrana`, normalizedPhone, role);
       return;
     }
 

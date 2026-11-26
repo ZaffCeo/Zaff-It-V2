@@ -344,13 +344,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .maybeSingle();
 
       if (!existingTask) {
-        await adminClient.from('delivery_tasks').insert({
-          order_id: order.id,
-          store_id: order.store_id,
-          status: 'unassigned',
-          pickup_otp: generateFourDigitOtp(),
-          delivery_otp: generateFourDigitOtp(),
-        });
+        const pickupOtp = generateFourDigitOtp();
+        const deliveryOtp = generateFourDigitOtp();
+        const { data: newTask, error: taskInsErr } = await adminClient
+          .from('delivery_tasks')
+          .insert({
+            order_id: order.id,
+            store_id: order.store_id,
+            status: 'unassigned',
+          })
+          .select('id')
+          .single();
+        if (taskInsErr || !newTask) {
+          return jsonError(500, 'INTERNAL_ERROR', 'Failed to create delivery task', requestId);
+        }
+        // OTP vault: deny-all RLS — never exposed to riders via PostgREST (AUD-CRIT-1/HIGH-2)
+        const { error: otpInsErr } = await adminClient
+          .from('delivery_handover_otps')
+          .upsert(
+            { task_id: newTask.id, pickup_otp: pickupOtp, delivery_otp: deliveryOtp, updated_at: nowIso },
+            { onConflict: 'task_id' },
+          );
+        if (otpInsErr) {
+          return jsonError(500, 'INTERNAL_ERROR', 'Failed to store handover OTPs', requestId);
+        }
       }
     }
 
@@ -387,7 +404,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: task } = await adminClient
       .from('delivery_tasks')
-      .select('id, rider_id, status, delivery_otp')
+      .select('id, rider_id, status')
       .eq('order_id', order.id)
       .maybeSingle();
 
@@ -405,26 +422,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return jsonError(409, 'IDEMPOTENCY_CONFLICT', 'Order already assigned to another rider', requestId);
       }
 
+      const pickupOtp = generateFourDigitOtp();
+      const deliveryOtp = generateFourDigitOtp();
       if (task) {
-        await adminClient
+        const { error: assignUpdErr } = await adminClient
           .from('delivery_tasks')
           .update({
             rider_id: actorId,
             status: 'assigned',
             assigned_at: nowIso,
-            delivery_otp: task.delivery_otp ?? generateFourDigitOtp(),
           })
           .eq('id', task.id);
+        if (assignUpdErr) {
+          return jsonError(500, 'INTERNAL_ERROR', assignUpdErr.message, requestId);
+        }
+        const { error: otpUpdErr } = await adminClient
+          .from('delivery_handover_otps')
+          .upsert(
+            { task_id: task.id, pickup_otp: pickupOtp, delivery_otp: deliveryOtp, updated_at: nowIso },
+            { onConflict: 'task_id' },
+          );
+        if (otpUpdErr) {
+          return jsonError(500, 'INTERNAL_ERROR', 'Failed to store handover OTPs', requestId);
+        }
       } else {
-        await adminClient.from('delivery_tasks').insert({
-          order_id: order.id,
-          store_id: order.store_id,
-          rider_id: actorId,
-          status: 'assigned',
-          assigned_at: nowIso,
-          pickup_otp: generateFourDigitOtp(),
-          delivery_otp: generateFourDigitOtp(),
-        });
+        const { data: newTask, error: taskInsErr } = await adminClient
+          .from('delivery_tasks')
+          .insert({
+            order_id: order.id,
+            store_id: order.store_id,
+            rider_id: actorId,
+            status: 'assigned',
+            assigned_at: nowIso,
+          })
+          .select('id')
+          .single();
+        if (taskInsErr || !newTask) {
+          return jsonError(500, 'INTERNAL_ERROR', 'Failed to create delivery task', requestId);
+        }
+        const { error: otpInsErr } = await adminClient
+          .from('delivery_handover_otps')
+          .insert({ task_id: newTask.id, pickup_otp: pickupOtp, delivery_otp: deliveryOtp });
+        if (otpInsErr) {
+          return jsonError(500, 'INTERNAL_ERROR', 'Failed to store handover OTPs', requestId);
+        }
       }
 
       const { error: updErr } = await adminClient
@@ -474,7 +515,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     if (payload.action === 'delivered') {
-      if (!task.delivery_otp || payload.otp !== task.delivery_otp) {
+      const { data: handoverCodes } = await adminClient
+        .from('delivery_handover_otps')
+        .select('delivery_otp')
+        .eq('task_id', task.id)
+        .maybeSingle();
+      if (!handoverCodes?.delivery_otp || payload.otp !== handoverCodes.delivery_otp) {
         return jsonError(400, 'VALIDATION_ERROR', 'Invalid 4-digit handover OTP', requestId);
       }
 

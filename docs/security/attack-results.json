@@ -1,0 +1,37 @@
+[
+  {
+    "id": "ATT-1",
+    "severity": "HIGH",
+    "title": "localStorage session/role tampering",
+    "detail": "Injected fake userId + role=admin into persisted zustand store",
+    "verdict": "MITIGATED (login required)"
+  },
+  {
+    "id": "ATT-2",
+    "severity": "MEDIUM",
+    "title": "XSS via product/cart name fields",
+    "detail": "Injected <img onerror> + <script> strings into cart item name/store",
+    "verdict": "MITIGATED (rendered as inert text, RN-web escapes)"
+  },
+  {
+    "id": "ATT-3",
+    "severity": "MEDIUM",
+    "title": "Client-side cart price tampering",
+    "detail": "Set unitPricePaise=0 in persisted store; basket UI recomputes totals client-side",
+    "verdict": "not visible"
+  },
+  {
+    "id": "ATT-4",
+    "severity": "HIGH",
+    "title": "?role=admin URL param privilege escalation (production build)",
+    "detail": "EXPO_PUBLIC_ENV=production build; submitted demo login with role=admin param",
+    "verdict": "CHECK"
+  },
+  {
+    "id": "ATT-5",
+    "severity": "INFO",
+    "title": "Zaffy AI rate limiting",
+    "detail": "Per-user 10/min + global 120/min sliding window (in-isolate)",
+    "verdict": "FIXED (code-level, 429 + Retry-After)"
+  }
+]
