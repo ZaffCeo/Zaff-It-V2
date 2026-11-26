@@ -86,6 +86,43 @@ const lifecycleSchema = z.discriminatedUnion('action', [
   }),
 ]);
 
+type AdminClient = ReturnType<typeof createClient>;
+
+// ---------------------------------------------------------------------------
+// Event-driven in-app notifications (migration 009.notifications).
+// Fire-and-forget: a failed insert must never block an order transition.
+// ---------------------------------------------------------------------------
+const STATUS_NOTIFY: Partial<Record<OrderStatus, { title: string; body: string }>> = {
+  accepted: { title: 'Order accept ho gaya', body: 'Dukaan aapka order taiyar kar rahi hai.' },
+  preparing: { title: 'Order ban raha hai', body: 'Fresh taiyari chal rahi hai.' },
+  ready_for_pickup: { title: 'Order ready ho gaya', body: 'Rider assign kiya ja raha hai.' },
+  rider_assigned: { title: 'Rider assign ho gaya', body: 'Rider store pahunch kar order lekar niklega.' },
+  picked_up: { title: 'Order pick ho gaya', body: 'Aapka order raaste me hai.' },
+  out_for_delivery: { title: 'Aapke paas aa raha hai', body: 'Rider jaldi hi pahunchega.' },
+  delivered: { title: 'Order deliver ho gaya', body: 'Z-Coins wallet me mil gaye. Rate karna na bhulein!' },
+};
+
+async function notifyCustomer(
+  adminClient: AdminClient,
+  customerId: string,
+  status: OrderStatus,
+  orderNumber: string,
+): Promise<void> {
+  const copy = STATUS_NOTIFY[status];
+  if (!copy) return;
+  try {
+    await adminClient.from('notifications').insert({
+      user_id: customerId,
+      kind: 'order',
+      title: copy.title,
+      body: copy.body,
+      data: { order_number: orderNumber, status },
+    });
+  } catch {
+    // notification failures are non-fatal
+  }
+}
+
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -301,6 +338,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         return jsonError(400, 'VALIDATION_ERROR', cancelErr?.message ?? 'Failed to reject order', requestId);
       }
 
+      await notifyCustomer(adminClient, order.customer_id, 'cancelled', order.order_number);
       return jsonResponse(200, {
         order_id: order.id,
         order_number: order.order_number,
@@ -368,8 +406,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (otpInsErr) {
           return jsonError(500, 'INTERNAL_ERROR', 'Failed to store handover OTPs', requestId);
         }
+        // P1 auto-assignment: best rider (least active load). Falls back to
+        // manual assignment silently when no candidate / RPC unavailable.
+        await adminClient.rpc('auto_assign_delivery_task', { p_task_id: newTask.id });
+      } else {
+        await adminClient.rpc('auto_assign_delivery_task', { p_task_id: existingTask.id });
       }
     }
+
+    await notifyCustomer(adminClient, order.customer_id, nextStatus, order.order_number);
 
     await adminClient.from('audit_logs').insert({
       actor_id: actorId,
@@ -476,6 +521,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (updErr) {
         return jsonError(500, 'INTERNAL_ERROR', updErr.message, requestId);
       }
+
+      await notifyCustomer(adminClient, order.customer_id, 'rider_assigned', order.order_number);
 
       await adminClient.from('audit_logs').insert({
         actor_id: actorId,
@@ -615,6 +662,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     }
 
+    await notifyCustomer(adminClient, order.customer_id, riderNextStatus, order.order_number);
+
+    if (payload.action === 'delivered') {
+      // ZaffCoin earn rule: 1 coin per Rs 10 spent (founder blueprint).
+      // award_coins is service-role-only (009); fire-and-forget.
+      try {
+        const coins = Math.floor(order.total_paise / 1000);
+        if (coins > 0) {
+          await adminClient.rpc('award_coins', {
+            p_user_id: order.customer_id,
+            p_coins: coins,
+            p_reason: `Order ${order.order_number} delivered`,
+            p_reference_type: 'order',
+            p_reference_id: order.id,
+          });
+        }
+      } catch {
+        // wallet award is non-fatal; settlement job reconciles later
+      }
+    }
+
     await adminClient.from('audit_logs').insert({
       actor_id: actorId,
       actor_role: isAdmin ? 'admin' : 'rider',
@@ -675,6 +743,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (cancelErr || !cancelRes) {
       return jsonError(400, 'VALIDATION_ERROR', cancelErr?.message ?? 'Failed to cancel order', requestId);
     }
+
+    await notifyCustomer(adminClient, order.customer_id, 'cancelled', order.order_number);
 
     return jsonResponse(200, {
       order_id: order.id,
