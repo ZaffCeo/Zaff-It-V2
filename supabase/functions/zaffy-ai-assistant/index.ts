@@ -198,10 +198,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
   const groqApiKey = Deno.env.get('GROQ_API_KEY');
   const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
-  if (!supabaseUrl || !anonKey || (!geminiApiKey && !groqApiKey && !openrouterApiKey)) {
+  if (!supabaseUrl || !anonKey || !serviceKey || (!geminiApiKey && !groqApiKey && !openrouterApiKey)) {
     return jsonError(500, 'INTERNAL_ERROR', 'Server configuration missing', requestId);
   }
 
@@ -209,22 +210,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!authHeader?.startsWith('Bearer ')) {
     return jsonError(401, 'UNAUTHORIZED', 'Missing or invalid Authorization header', requestId);
   }
+  const bearer = authHeader.slice(7).trim();
 
   // User-scoped client enforces PostgreSQL RLS (strictly read-only access to caller's own orders)
   const supabase = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: authData, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !authData.user) {
+  const { data: authData } = await supabase.auth.getUser();
+
+  // Dual access mode (availability while SMS provider is not yet connected):
+  //   * signed-in Supabase user  -> full grounding (own orders + catalogue)
+  //   * anon-key demo session    -> catalogue-only grounding, IP rate-limited,
+  //     gated by ALLOW_ZAFFY_ANON secret. Any OTHER bearer is rejected.
+  const anonAllowed = Deno.env.get('ALLOW_ZAFFY_ANON') === 'true';
+  const isAnonSession = !authData?.user && anonAllowed && bearer === anonKey;
+  if (!authData?.user && !isAnonSession) {
     return jsonError(401, 'UNAUTHORIZED', 'Invalid or expired Supabase JWT', requestId);
   }
+  const accessMode: 'user' | 'anon' = authData?.user ? 'user' : 'anon';
 
-  const rl = rateLimit(authData.user.id);
-  // Persistent (DB-backed) per-user window — survives instance restarts; RPC
-  // miss/error falls back to the in-memory verdict above (best-effort hardening).
+  const adminClient = createClient(supabaseUrl, serviceKey);
+  const rateLimitKey =
+    authData?.user?.id ??
+    `anon:${req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'}`;
+
+  const rl = rateLimit(rateLimitKey);
+  // Persistent (DB-backed) window via service-role client (works for anon too).
   try {
-    const { data: dbAllowed, error: rlErr } = await supabase.rpc('check_rate_limit', {
-      p_key: `zaffy:user:${authData.user.id}`,
+    const { data: dbAllowed, error: rlErr } = await adminClient.rpc('check_rate_limit', {
+      p_key: `zaffy:${accessMode}:${rateLimitKey}`.slice(0, 120),
       p_max: USER_RATE_LIMIT,
       p_window_sec: 60,
     });
@@ -267,28 +281,43 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { query, store_id, order_number, locale } = parsed.data;
   const groundedEntities: Array<{ type: 'order' | 'product'; id: string; status?: string }> = [];
 
-  // 1. Read-only order lookup (RLS-scoped to current user)
-  const orderMatch = order_number ?? query.match(/ZAF-[0-9]{8}-[A-Z0-9]{4,8}/i)?.[0];
-  let ordersQuery = supabase
-    .from('orders')
-    .select('id, order_number, status, total_paise, payment_method, placed_at, delivered_at')
-    .order('created_at', { ascending: false })
-    .limit(3);
-  if (orderMatch) {
-    ordersQuery = ordersQuery.eq('order_number', orderMatch.toUpperCase());
-  }
-  const { data: orders } = await ordersQuery;
-  for (const ord of orders ?? []) {
-    groundedEntities.push({ type: 'order', id: ord.id, status: ord.status });
+  // 1. Read-only order lookup (RLS-scoped to current user; skipped for anon)
+  let orders: Array<Record<string, unknown>> = [];
+  if (authData?.user) {
+    const orderMatch = order_number ?? query.match(/ZAF-[0-9]{8}-[A-Z0-9]{4,8}/i)?.[0];
+    let ordersQuery = supabase
+      .from('orders')
+      .select('id, order_number, status, total_paise, payment_method, placed_at, delivered_at')
+      .order('created_at', { ascending: false })
+      .limit(3);
+    if (orderMatch) {
+      ordersQuery = ordersQuery.eq('order_number', orderMatch.toUpperCase());
+    }
+    const { data: rows } = await ordersQuery;
+    orders = rows ?? [];
+    for (const ord of orders) {
+      groundedEntities.push({ type: 'order', id: String(ord.id), status: String(ord.status) });
+    }
   }
 
-  // 2. Read-only store catalogue snippet lookup
+  // 2. Read-only store catalogue snippet lookup.
+  // Anon sessions get the first active store so answers stay grounded in real data.
+  let effectiveStoreId = store_id ?? null;
+  if (!effectiveStoreId && isAnonSession) {
+    const { data: firstStore } = await adminClient
+      .from('stores')
+      .select('id')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+    effectiveStoreId = firstStore?.id ?? null;
+  }
   let catalogueItems: unknown[] = [];
-  if (store_id) {
+  if (effectiveStoreId) {
     const { data: storeProducts } = await supabase
       .from('store_products')
       .select('id, selling_price_paise, mrp_paise, is_available, products(id, name, unit_label), inventory(available_to_sell)')
-      .eq('store_id', store_id)
+      .eq('store_id', effectiveStoreId)
       .eq('is_available', true)
       .limit(20);
     catalogueItems = storeProducts ?? [];
@@ -334,6 +363,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       grounded_entities: groundedEntities,
       provider: llm.provider,
       model: llm.model,
+      mode: accessMode,
       read_only_verified: true,
     }),
     { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
