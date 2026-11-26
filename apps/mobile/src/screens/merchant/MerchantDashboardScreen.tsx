@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   BRAND_COLORS,
   ELEVATION,
+  GLOW,
   RADII,
   SPACING,
   STATUS_COLORS,
@@ -260,10 +262,28 @@ export const MerchantDashboardScreen: React.FC<MerchantDashboardScreenProps> = (
       >
         {/* Store Header + Open/Close Toggle */}
         <View style={styles.headerCard}>
+          <View style={styles.headerLogoTile}>
+            <Image
+              source={require('../../../assets/zaff-it-logo.jpg')}
+              style={styles.headerLogoImage}
+              resizeMode="contain"
+              accessibilityLabel="ZAFF Partner Logo"
+            />
+          </View>
           <View style={styles.headerTextCol}>
-            <Text style={styles.storeLabel}>MERCHANT CONSOLE</Text>
-            <Text style={styles.storeName} numberOfLines={1}>
-              {metrics.storeName}
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.storeName} numberOfLines={1}>
+                ZAFF Partner
+              </Text>
+              {metrics.isOpen ? (
+                <View style={styles.livePill}>
+                  <View style={styles.liveDot} />
+                  <Text style={styles.livePillText}>LIVE</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.storeLocality} numberOfLines={1}>
+              {metrics.storeName} · {metrics.locality}
             </Text>
             <Text style={styles.storeLocality}>{metrics.locality}</Text>
           </View>
@@ -472,6 +492,47 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
     ...ELEVATION.sm,
   },
+  headerLogoTile: {
+    width: 52,
+    height: 52,
+    borderRadius: RADII.md,
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.goldenYellow,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  headerLogoImage: {
+    width: 44,
+    height: 32,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: BRAND_COLORS.electricGreen,
+    borderRadius: RADII.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: RADII.full,
+    backgroundColor: BRAND_COLORS.pureWhite,
+  },
+  livePillText: {
+    color: BRAND_COLORS.pureWhite,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   headerTextCol: {
     flex: 1,
     gap: SPACING.xxs,
@@ -619,16 +680,19 @@ const styles = StyleSheet.create({
   },
   kpiGrid: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    backgroundColor: SURFACE_DARK.canvasLowest,
+    borderRadius: RADII.lg,
+    borderWidth: 1,
+    borderColor: SURFACE_DARK.border,
+    paddingVertical: SPACING.md,
+    ...ELEVATION.sm,
   },
   kpiBox: {
     flex: 1,
-    backgroundColor: SURFACE_DARK.surface2,
-    borderRadius: RADII.md,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xs,
     alignItems: 'center',
     gap: SPACING.xs,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: SURFACE_DARK.borderStrong,
   },
   kpiNumber: {
     ...TYPOGRAPHY.headlineLg,
@@ -648,6 +712,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.lg,
+    ...GLOW.gold,
   },
   primaryCtaText: {
     ...TYPOGRAPHY.labelLg,

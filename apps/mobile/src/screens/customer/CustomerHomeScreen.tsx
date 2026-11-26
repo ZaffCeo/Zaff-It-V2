@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import {
   BRAND_COLORS,
+  GLOW,
   RADII,
   SPACING,
   STATUS_COLORS,
@@ -23,6 +24,7 @@ import {
   SURFACE_LIGHT,
   TOUCH_TARGETS,
   TYPOGRAPHY,
+  pickProductArt,
 } from '@zaff-it/shared/tokens';
 import {
   computeLocalCartTotalsPaise,
@@ -398,14 +400,15 @@ export const CustomerHomeScreen: React.FC = () => {
         </View>
 
         <View style={[styles.productVisualBox, { backgroundColor: surface.surface2 }]}>
-          <Ionicons
-            name="basket-outline"
-            size={30}
-            color={BRAND_COLORS.electricGreen}
-          />
-          <Text style={[styles.etaText, { color: BRAND_COLORS.electricGreen }]}>
-            {item.eta_min_minutes}-{item.eta_max_minutes} {t.etaUnit}
+          <Text style={styles.productArtText} accessibilityLabel={item.name}>
+            {pickProductArt(item.name)}
           </Text>
+          <View style={styles.etaChip}>
+            <Ionicons name="flash" size={11} color={BRAND_COLORS.electricGreen} />
+            <Text style={[styles.etaText, { color: BRAND_COLORS.electricGreen }]}>
+              {item.eta_min_minutes}-{item.eta_max_minutes} {t.etaUnit}
+            </Text>
+          </View>
         </View>
 
         <Text
@@ -591,10 +594,11 @@ export const CustomerHomeScreen: React.FC = () => {
       <View style={styles.askZaffyCard}>
         <View style={styles.askZaffyTopRow}>
           <View style={styles.zaffyMascotBadge}>
-            <Ionicons
-              name="sparkles"
-              size={24}
-              color={BRAND_COLORS.charcoalBlack}
+            <Image
+              source={require('../../../assets/zaffy-mascot-v2.png')}
+              style={styles.zaffyMascotImage}
+              resizeMode="contain"
+              accessibilityLabel="Zaffy AI Mascot"
             />
           </View>
           <View style={styles.askZaffyTitleWrap}>
@@ -671,13 +675,12 @@ export const CustomerHomeScreen: React.FC = () => {
         </View>
 
         <View style={styles.promoRight}>
-          <View style={styles.promoArtCircle}>
-            <Ionicons
-              name="nutrition"
-              size={48}
-              color={BRAND_COLORS.electricGreen}
-            />
-          </View>
+          <Image
+            source={require('../../../assets/banner-fresh-basket.jpg')}
+            style={styles.promoArtImage}
+            resizeMode="cover"
+            accessibilityLabel="Freshness at Best Price"
+          />
         </View>
 
         <View style={styles.carouselDots}>
@@ -1101,11 +1104,13 @@ const styles = StyleSheet.create({
   },
   askZaffyCard: {
     backgroundColor: '#FFF3C4',
-    borderRadius: RADII.lg,
+    borderRadius: RADII.xl,
     borderWidth: 1,
     borderColor: BRAND_COLORS.goldenYellow,
     padding: SPACING.md,
     gap: SPACING.md,
+    overflow: 'hidden',
+    ...GLOW.goldSoft,
   },
   askZaffyTopRow: {
     flexDirection: 'row',
@@ -1113,12 +1118,16 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   zaffyMascotBadge: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
     borderRadius: RADII.md,
-    backgroundColor: BRAND_COLORS.goldenYellow,
+    backgroundColor: 'rgba(255,255,255,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  zaffyMascotImage: {
+    width: 46,
+    height: 46,
   },
   askZaffyTitleWrap: {
     flex: 1,
@@ -1220,13 +1229,10 @@ const styles = StyleSheet.create({
   promoRight: {
     paddingLeft: SPACING.md,
   },
-  promoArtCircle: {
-    width: 88,
+  promoArtImage: {
+    width: 112,
     height: 88,
-    borderRadius: RADII.full,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: RADII.lg,
   },
   carouselDots: {
     position: 'absolute',
@@ -1357,11 +1363,23 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
   productVisualBox: {
-    height: 76,
-    borderRadius: RADII.sm,
+    height: 84,
+    borderRadius: RADII.md,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  productArtText: {
+    fontSize: 40,
+  },
+  etaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(12,131,31,0.10)',
+    borderRadius: RADII.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   etaText: {
     fontSize: TYPOGRAPHY.captionMin.fontSize,
