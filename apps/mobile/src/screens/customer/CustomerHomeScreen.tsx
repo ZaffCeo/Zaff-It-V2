@@ -42,6 +42,7 @@ import {
   LoadingSkeleton,
   PrimaryButton,
 } from '@/components/StateViews';
+import { AssuranceStrip, GradientBanner } from '@/components/ui/PremiumKit';
 import type { CustomerTabParamList } from '@/navigation/RootNavigator';
 
 interface StoreRow {
@@ -184,6 +185,45 @@ const FALLBACK_PRODUCTS: CatalogueProduct[] = [
   },
 ];
 
+type PromoSlide = import('@/components/ui/PremiumKit').BannerSlide & {
+  image?: number;
+  category: string;
+  openZaffy?: boolean;
+};
+
+/** Auto-rotating premium promo carousel (2026 kinetic banner stack). */
+const PROMO_SLIDES: PromoSlide[] = [
+  {
+    headline: 'Freshness at Best Price!',
+    sub: 'Up to 50% OFF on daily staples',
+    cta: 'Shop Now',
+    image: require('../../../assets/banner-fresh-basket.jpg'),
+    category: 'Fruits & Veggies',
+  },
+  {
+    headline: 'Ask Zaffy, Shop Smart',
+    sub: 'AI assistant · budget baskets · recipes',
+    cta: 'Try Zaffy',
+    icon: 'sparkles',
+    category: 'All',
+    openZaffy: true,
+  },
+  {
+    headline: 'Munch Time Bonanza',
+    sub: 'Flat 70% OFF on snacks & drinks',
+    cta: 'Grab Deal',
+    icon: 'flash',
+    category: 'Snacks & Munchies',
+  },
+  {
+    headline: 'FREE Delivery over ₹299',
+    sub: 'Makrana pilot · live rider ETA',
+    cta: 'Start Order',
+    icon: 'bicycle',
+    category: 'All',
+  },
+];
+
 export const CustomerHomeScreen: React.FC = () => {
   const navigation =
     useNavigation<BottomTabNavigationProp<CustomerTabParamList>>();
@@ -199,6 +239,7 @@ export const CustomerHomeScreen: React.FC = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [promoIndex, setPromoIndex] = useState(0);
   const [products, setProducts] = useState<CatalogueProduct[]>(FALLBACK_PRODUCTS);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -280,6 +321,14 @@ export const CustomerHomeScreen: React.FC = () => {
       setLoading(false);
     }
   }, [searchQuery, t.errorGeneric]);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setPromoIndex((i) => (i + 1) % PROMO_SLIDES.length),
+      4200,
+    );
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     loadCatalogue();
@@ -650,47 +699,29 @@ export const CustomerHomeScreen: React.FC = () => {
         </ScrollView>
       </View>
 
-      {/* Golden Promo Carousel Banner */}
+      {/* Golden Promo Carousel — 2026 kinetic banner stack */}
       <View style={styles.promoBanner}>
-        <View style={styles.promoLeft}>
-          <View style={styles.sponsoredPill}>
-            <Text style={styles.sponsoredText}>Sponsored</Text>
-            <Ionicons name="star" size={11} color={BRAND_COLORS.goldenYellow} />
-          </View>
-          <Text style={styles.promoHeadline}>Freshness at Best Price!</Text>
-          <Text style={styles.promoSub}>Up to 50% OFF</Text>
-          <Pressable
-            onPress={() => setSelectedCategory('Fruits & Veggies')}
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.promoCta,
-              { opacity: pressed ? 0.85 : 1 },
+        <GradientBanner
+          slide={PROMO_SLIDES[promoIndex]}
+          index={promoIndex}
+          totalSlides={PROMO_SLIDES.length}
+          image={PROMO_SLIDES[promoIndex].image}
+          onPressCta={() => {
+            const slide = PROMO_SLIDES[promoIndex];
+            if (slide.openZaffy) openZaffyWithPrompt('Kya mangwana hai?');
+            else setSelectedCategory(slide.category);
+          }}
+        />
+        <View style={{ marginTop: SPACING.sm }}>
+          <AssuranceStrip
+            mode={colorScheme}
+            items={[
+              { icon: 'shield-checkmark', label: '100% Secure' },
+              { icon: 'flash', label: 'Live ETA' },
+              { icon: 'cash-outline', label: 'COD' },
+              { icon: 'refresh-circle', label: 'Easy Refunds' },
             ]}
-          >
-            <Text style={styles.promoCtaText}>Shop Now</Text>
-            <Ionicons
-              name="arrow-forward"
-              size={14}
-              color={BRAND_COLORS.pureWhite}
-            />
-          </Pressable>
-        </View>
-
-        <View style={styles.promoRight}>
-          <Image
-            source={require('../../../assets/banner-fresh-basket.jpg')}
-            style={styles.promoArtImage}
-            resizeMode="cover"
-            accessibilityLabel="Freshness at Best Price"
           />
-        </View>
-
-        <View style={styles.carouselDots}>
-          <View style={[styles.dot, styles.dotActive]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
         </View>
       </View>
 
@@ -1197,13 +1228,9 @@ const styles = StyleSheet.create({
   promoBanner: {
     backgroundColor: '#FFD54F',
     borderRadius: RADII.lg,
-    padding: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: SPACING.sm,
+    gap: SPACING.sm,
     overflow: 'hidden',
-    position: 'relative',
-    paddingBottom: SPACING.xl,
   },
   promoLeft: {
     flex: 1,

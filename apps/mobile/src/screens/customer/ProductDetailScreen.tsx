@@ -24,6 +24,7 @@ import {
 import { formatPaise, useAppStore } from '@/store/useAppStore';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import { LoadingSkeleton, PrimaryButton } from '@/components/StateViews';
+import { PressableScale } from '@/components/ui/PremiumKit';
 
 export type SubstitutionPolicy = 'call_me' | 'best_substitute' | 'refund_item';
 
@@ -477,19 +478,21 @@ export const ProductDetailScreen: React.FC = () => {
             </View>
           </View>
         ) : (
-          <PrimaryButton
-            label={
-              outOfStock
-                ? 'Currently Out of Stock'
-                : `Add to Basket • ${formatPaise(product.selling_price_paise)}`
-            }
-            onPress={handleAddToBasket}
-            disabled={outOfStock}
-            variant="success"
-            icon="bag-add-outline"
-            mode={colorScheme}
-            style={styles.ctaHeight}
-          />
+          <PressableScale haptic={!outOfStock} pressScale={0.97}>
+            <PrimaryButton
+              label={
+                outOfStock
+                  ? 'Currently Out of Stock'
+                  : `Add to Basket • ${formatPaise(product.selling_price_paise)}`
+              }
+              onPress={handleAddToBasket}
+              disabled={outOfStock}
+              variant="success"
+              icon="bag-add-outline"
+              mode={colorScheme}
+              style={styles.ctaHeight}
+            />
+          </PressableScale>
         )}
       </View>
     </SafeAreaView>

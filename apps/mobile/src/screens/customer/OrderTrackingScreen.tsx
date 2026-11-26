@@ -21,6 +21,7 @@ import {
   ErrorRetryBanner,
   LoadingSkeleton,
 } from '@/components/StateViews';
+import { PulsingDot } from '@/components/ui/PremiumKit';
 import type { CustomerTabParamList } from '@/navigation/RootNavigator';
 
 interface TrackedOrder {
@@ -238,7 +239,10 @@ export const OrderTrackingScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={styles.etaBox}>
-                <Text style={styles.etaBoxLabel}>{t.estimatedArrival}</Text>
+                <View style={styles.etaLabelRow}>
+                  <PulsingDot />
+                  <Text style={styles.etaBoxLabel}>{t.estimatedArrival}</Text>
+                </View>
                 <Text style={styles.etaBoxValue}>
                   {order.eta_min_minutes}-{order.eta_max_minutes} {t.etaUnit}
                 </Text>
@@ -257,6 +261,11 @@ export const OrderTrackingScreen: React.FC = () => {
                 </View>
               ) : null}
             </View>
+            {order.delivery_otp !== null ? (
+              <Text style={[styles.otpHint, { color: surface.textMuted }]}>
+                🔐 OTP sirf delivery ke time rider ko batao — pehle share na karo.
+              </Text>
+            ) : null}
           </View>
 
           {/* State Machine Timeline */}
@@ -410,6 +419,16 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderRadius: RADII.md,
     alignItems: 'flex-end',
+  },
+  etaLabelRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  otpHint: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: '600',
   },
   etaBoxLabel: {
     color: BRAND_COLORS.goldenYellow,
