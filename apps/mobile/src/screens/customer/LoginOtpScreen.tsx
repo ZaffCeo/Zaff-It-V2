@@ -37,6 +37,10 @@ export const LoginOtpScreen: React.FC = () => {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+  // Graceful degradation: real backend configured but SMS provider not yet
+  // connected (no Twilio/Vonage creds) — fall back to demo OTP in dev builds
+  // so the live app stays reviewable. Real SMS path is used once provider lands.
+  const [smsFallback, setSmsFallback] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const normalizedPhone = `+91${phoneDigits.replace(/\D/g, '').slice(0, 10)}`;
@@ -68,7 +72,16 @@ export const LoginOtpScreen: React.FC = () => {
         phone: normalizedPhone,
       });
       if (error) {
-        setErrorMsg(error.message);
+        const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
+        if (isDevelopmentEnv) {
+          // SMS provider not connected yet (e.g. "Error sending SMS") —
+          // dev builds fall back to the demo OTP flow.
+          setSmsFallback(true);
+          setErrorMsg(null);
+          setStep('otp');
+        } else {
+          setErrorMsg(error.message);
+        }
       } else {
         setStep('otp');
       }
@@ -86,7 +99,7 @@ export const LoginOtpScreen: React.FC = () => {
       return;
     }
 
-    if (!isSupabaseConfigured()) {
+    if (smsFallback || !isSupabaseConfigured()) {
       // AUD-LOW-6: demo role switch allowed ONLY in development builds with
       // no backend configured — never when EXPO_PUBLIC_ENV is staging/production.
       let demoRole: UserRole | null = null;

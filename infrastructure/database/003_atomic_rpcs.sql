@@ -754,7 +754,7 @@ AS $$
     ),
     flags AS (
         SELECT
-            COALESCE(MAX(CASE WHEN key = 'dark_store_enabled' THEN is_enabled END), false) AS dark_store_enabled,
+            COALESCE(BOOL_OR(CASE WHEN key = 'dark_store_enabled' THEN is_enabled END), false) AS dark_store_enabled,
             COALESCE(MAX(CASE WHEN key = 'dark_store_daily_order_threshold' THEN int_value END), 500) AS threshold
         FROM public.feature_flags
     )

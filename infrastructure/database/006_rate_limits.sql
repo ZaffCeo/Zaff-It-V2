@@ -95,7 +95,7 @@ ALTER TABLE public.rate_limit_events     FORCE ROW LEVEL SECURITY;
 -- ------------------------------------------------------------
 -- 4. Audit log entry
 -- ------------------------------------------------------------
-INSERT INTO public.audit_logs (action, entity_type, entity_id, details)
+INSERT INTO public.audit_logs (action, entity_type, entity_id, new_data)
 VALUES (
     'SECURITY_HARDENING_006',
     'system',

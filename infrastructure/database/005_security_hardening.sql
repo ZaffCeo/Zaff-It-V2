@@ -97,17 +97,11 @@ GRANT EXECUTE ON FUNCTION public.get_my_delivery_otp(UUID) TO authenticated;
 -- ---------------------------------------------------------------------------
 -- 5. Audit the hardening change itself
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM public.audit_logs LIMIT 1) OR TRUE THEN
-        INSERT INTO public.audit_logs (actor_role, action, entity_type, entity_id, details)
-        VALUES (
-            'system',
-            'SECURITY_HARDENING_005',
-            'delivery_tasks',
-            NULL,
-            '{"change": "OTPs moved to delivery_handover_otps (deny-all RLS); rider UPDATE policy removed; customer OTP via get_my_delivery_otp RPC"}'::JSONB
-        );
-    END IF;
-END
-$$;
+INSERT INTO public.audit_logs (actor_role, action, entity_type, entity_id, new_data)
+VALUES (
+    'system',
+    'SECURITY_HARDENING_005',
+    'delivery_tasks',
+    NULL,
+    '{"change": "OTPs moved to delivery_handover_otps (deny-all RLS); rider UPDATE policy removed; customer OTP via get_my_delivery_otp RPC"}'::JSONB
+);
