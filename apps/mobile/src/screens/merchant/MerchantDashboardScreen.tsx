@@ -264,7 +264,7 @@ export const MerchantDashboardScreen: React.FC<MerchantDashboardScreenProps> = (
         <View style={styles.headerCard}>
           <View style={styles.headerLogoTile}>
             <Image
-              source={require('../../assets/zaff-it-logo.jpg')}
+              source={require('../../../assets/zaff-it-logo.jpg')}
               style={styles.headerLogoImage}
               resizeMode="contain"
               accessibilityLabel="ZAFF Partner Logo"
