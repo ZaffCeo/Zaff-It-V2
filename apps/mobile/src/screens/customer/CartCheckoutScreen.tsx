@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,6 +36,7 @@ import {
   supabase,
   SUPABASE_FUNCTIONS_URL,
 } from '@/services/supabase';
+import { openRazorpayCheckout } from '@/services/razorpayCheckout';
 import {
   EmptyState,
   ErrorRetryBanner,
@@ -296,12 +298,49 @@ export const CartCheckoutScreen: React.FC = () => {
 
       const json = (await response.json()) as {
         order_id?: string;
+        order_number?: string;
         error?: { message?: string };
+        payment?: {
+          provider: 'razorpay' | 'cod';
+          razorpay_order_id: string | null;
+          amount_paise: number;
+          currency: string;
+        };
       };
 
       if (!response.ok || json.order_id === undefined) {
         setErrorMsg(json.error?.message ?? t.errorGeneric);
         return;
+      }
+
+      // Web: open the Razorpay popup for online payments. Confirmation is
+      // server-side (razorpay-webhook verifies the HMAC signature); the popup
+      // result is UX signal only.
+      if (
+        json.payment?.provider === 'razorpay' &&
+        json.payment.razorpay_order_id &&
+        Platform.OS === 'web'
+      ) {
+        try {
+          const result = await openRazorpayCheckout({
+            razorpayOrderId: json.payment.razorpay_order_id,
+            amountPaise: json.payment.amount_paise,
+            currency: json.payment.currency,
+            orderNumber: json.order_number,
+            themeColor: BRAND_COLORS.goldenYellow,
+          });
+          if (result.outcome === 'failed') {
+            setErrorMsg(
+              result.description
+                ? `Payment failed: ${result.description}. Order saved — retry from Orders.`
+                : t.errorGeneric,
+            );
+          } else if (result.outcome === 'dismissed') {
+            setErrorMsg('Payment window closed. Order saved — retry payment from Orders.');
+          }
+        } catch {
+          setErrorMsg('Could not open the payment window. Order saved — retry from Orders.');
+        }
       }
 
       setActiveOrderId(json.order_id);
