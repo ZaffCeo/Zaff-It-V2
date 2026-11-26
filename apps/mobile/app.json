@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/zaff-it-logo.jpg",
+      "image": "./assets/zaff-it-logo-wide.png",
       "backgroundColor": "#121416",
       "resizeMode": "contain"
     },
