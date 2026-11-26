@@ -89,3 +89,18 @@ Track only: screen_view, add_to_cart, checkout_success, zaffy_query (PII nahin).
 | Zaffy not answering | edge fn logs (provider chain), secrets present? |
 | Stock mismatch | `inventory_movements` per store_product; sweeper audit entries |
 | Settlement gap | run `select public.reconcile_settlements();` (admin JWT) or wait for nightly |
+
+## Catalog Platform (added 2026-11-26)
+
+- Worker: edge function `catalog-ingest` (verify_jwt=false; auth via
+  `x-ingest-token` == secret `CATALOG_INGEST_TOKEN`). Cron
+  `zaff-catalog-ingest-kick` fires it every 30 min via pg_net.
+- Rules: AI text-only enrichment (no invented facts possible by schema);
+  no-LLM-category ⇒ needs_review; branded-no-image ⇒ needs_review; Commons
+  images only with CC/PD license. See docs/product-data-platform.md.
+- R2 mirror activates when R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/
+  R2_BUCKET/R2_PUBLIC_BASE secrets exist; otherwise licensed remote URLs stay.
+- LLM chain: GROQ_API_KEY (active: llama/gpt-oss-120b free tier) → GEMINI_API_KEY
+  → OPENROUTER_API_KEY. All optional; missing ⇒ source-only ingest + needs_review.
+- Health: `SELECT status, count(*) FROM catalog_ingest_queue GROUP BY 1;`
+  stuck 'processing' > 10 min ⇒ reset to pending after checking function logs.
