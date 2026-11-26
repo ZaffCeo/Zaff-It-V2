@@ -5,7 +5,10 @@ export interface OpenFoodFactsProduct {
   quantityLabel: string;
   imageUrl: string | null;
   categoryHint: string;
-  source: 'open_food_facts_india';
+  source:
+    | 'open_food_facts_india'
+    | 'open_products_facts'
+    | 'upcitemdb_free_tier';
 }
 
 interface OffApiResponse {
