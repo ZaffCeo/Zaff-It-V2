@@ -1,4 +1,3 @@
-import { GoogleGenAI } from 'npm:@google/genai@^3.2.0';
 import { createClient } from 'npm:@supabase/supabase-js@^2.49.0';
 import { z } from 'npm:zod@^3.24.0';
 
@@ -8,9 +7,11 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// AUD-MED-5: configurable model (was a non-existent hardcoded id that made
-// every call fail). Default matches docs/.env.example (GEMINI_MODEL).
-const MODEL_ID = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+// AUD-MED-5 + fallback hardening: configurable primary model (GEMINI_MODEL),
+// plus a curated fallback chain — Gemini flash models intermittently return
+// 503 "high demand", so Zaffy tries each before falling to a second provider.
+const GEMINI_FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+const GROQ_DEFAULT_MODEL = 'llama-3.3-70b-versatile';
 
 // AUD-MED-5: per-user + global sliding-window rate limits to prevent API cost
 // abuse. In-isolate memory is per-instance; combined with the 500-char query
@@ -48,15 +49,102 @@ const requestSchema = z.object({
   locale: z.enum(['en-IN', 'hi', 'hinglish']).default('en-IN'),
 });
 
-function jsonError(status: number, code: string, message: string, requestId: string): Response {
+function jsonError(
+  status: number,
+  code: string,
+  message: string,
+  requestId: string,
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(
     JSON.stringify({ error: { code, message, request_id: requestId } }),
-    { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
+    { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', ...extraHeaders } },
   );
 }
 
 function escapeXml(value: string): string {
   return value.replace(/[<>&]/g, (ch) => (ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : '&amp;'));
+}
+
+// ---------------------------------------------------------------------------
+// LLM provider fallback chain (availability hardening):
+//   1. Gemini — primary (GEMINI_MODEL), then curated flash fallbacks.
+//   2. Groq free tier (OpenAI-compatible) as last resort when GROQ_API_KEY is
+//      set. The SAME system instruction goes to every provider, so grounding,
+//      read-only behaviour and anti-injection rules are identical everywhere.
+// ---------------------------------------------------------------------------
+async function callGemini(apiKey: string, model: string, systemInstruction: string, userInput: string): Promise<string> {
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts: [{ text: userInput }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 512 },
+      }),
+    },
+  );
+  if (!r.ok) throw new Error(`gemini ${model} HTTP ${r.status}`);
+  const j = await r.json();
+  const text = j?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error(`gemini ${model} empty response`);
+  return String(text);
+}
+
+async function callGroq(apiKey: string, model: string, systemInstruction: string, userInput: string): Promise<string> {
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      max_tokens: 512,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: userInput },
+      ],
+    }),
+  });
+  if (!r.ok) throw new Error(`groq ${model} HTTP ${r.status}`);
+  const j = await r.json();
+  const text = j?.choices?.[0]?.message?.content;
+  if (!text) throw new Error(`groq ${model} empty response`);
+  return String(text);
+}
+
+async function callLLM(
+  systemInstruction: string,
+  userInput: string,
+): Promise<{ reply: string; provider: string; model: string }> {
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+  const groqApiKey = Deno.env.get('GROQ_API_KEY');
+
+  if (geminiApiKey) {
+    const primary = Deno.env.get('GEMINI_MODEL') ?? GEMINI_FALLBACK_MODELS[0];
+    const chain = [primary, ...GEMINI_FALLBACK_MODELS.filter((m) => m !== primary)];
+    for (const model of chain) {
+      try {
+        const reply = await callGemini(geminiApiKey, model, systemInstruction, userInput);
+        return { reply, provider: 'gemini', model };
+      } catch {
+        // try next model in the chain
+      }
+    }
+  }
+
+  if (groqApiKey) {
+    const model = Deno.env.get('GROQ_MODEL') ?? GROQ_DEFAULT_MODEL;
+    try {
+      const reply = await callGroq(groqApiKey, model, systemInstruction, userInput);
+      return { reply, provider: 'groq', model };
+    } catch {
+      // fall through to final failure
+    }
+  }
+
+  throw new Error('all LLM providers failed');
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -68,7 +156,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-  if (!supabaseUrl || !anonKey || !geminiApiKey) {
+  const groqApiKey = Deno.env.get('GROQ_API_KEY');
+  if (!supabaseUrl || !anonKey || (!geminiApiKey && !groqApiKey)) {
     return jsonError(500, 'INTERNAL_ERROR', 'Server configuration missing', requestId);
   }
 
@@ -180,19 +269,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     `Format prices in INR (divide *_paise by 100). Reply concisely in locale: ${locale}.`,
   ].join(' ');
 
-  const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-  const interaction = await ai.interactions.create({
-    model: MODEL_ID,
-    system_instruction: systemInstruction,
-    input: `<retrieved_data>\n${serializedContext}\n</retrieved_data>\n\nUser question: ${escapeXml(query)}`,
-    store: false,
-  });
+  const userInput = `<retrieved_data>\n${serializedContext}\n</retrieved_data>\n\nUser question: ${escapeXml(query)}`;
+
+  let llm: { reply: string; provider: string; model: string };
+  try {
+    llm = await callLLM(systemInstruction, userInput);
+  } catch {
+    return jsonError(
+      503,
+      'AI_UNAVAILABLE',
+      'Zaffy is unavailable right now. Please try again shortly.',
+      requestId,
+      { 'Retry-After': '30' },
+    );
+  }
 
   return new Response(
     JSON.stringify({
-      reply: interaction.output_text ?? 'I could not find matching details right now.',
+      reply: llm.reply,
       grounded_entities: groundedEntities,
-      model: MODEL_ID,
+      provider: llm.provider,
+      model: llm.model,
       read_only_verified: true,
     }),
     { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } },
