@@ -23,6 +23,13 @@ import {
 import { useAppStore, type UserRole } from '@/store/useAppStore';
 import { getTranslation } from '@/i18n/translations';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
+import {
+  FIREBASE_PHONE_ENABLED,
+  activeOtpChannelLabel,
+  confirmFirebaseOtp,
+  resetFirebaseOtpFlow,
+  sendFirebaseOtp,
+} from '@/services/firebaseAuth';
 import { ErrorRetryBanner, PrimaryButton } from '@/components/StateViews';
 
 export const LoginOtpScreen: React.FC = () => {
@@ -41,6 +48,9 @@ export const LoginOtpScreen: React.FC = () => {
   // connected (no Twilio/Vonage creds) — fall back to demo OTP in dev builds
   // so the live app stays reviewable. Real SMS path is used once provider lands.
   const [smsFallback, setSmsFallback] = useState(false);
+  // Dual-provider auth: 'firebase' = Firebase SMS -> signInWithIdToken exchange,
+  // 'supabase' = Supabase native SMS (Twilio) or demo fallback.
+  const [authMode, setAuthMode] = useState<'firebase' | 'supabase'>('supabase');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const normalizedPhone = `+91${phoneDigits.replace(/\D/g, '').slice(0, 10)}`;
@@ -65,6 +75,32 @@ export const LoginOtpScreen: React.FC = () => {
       return;
     }
 
+    // Path A — Firebase SMS (no DLT needed; 10 free SMS/day). On failure in
+    // dev builds we silently fall through to the Supabase SMS/demo path.
+    if (FIREBASE_PHONE_ENABLED) {
+      setLoading(true);
+      try {
+        await sendFirebaseOtp(normalizedPhone);
+        setAuthMode('firebase');
+        setResendIn(30);
+        setErrorMsg(null);
+        setStep('otp');
+        return;
+      } catch (err) {
+        const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
+        if (!isDevelopmentEnv) {
+          setErrorMsg(
+            err instanceof Error && err.message ? err.message : t.errorGeneric,
+          );
+          return;
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Path B — Supabase native SMS (Twilio) + demo fallback.
+    setAuthMode('supabase');
     setResendIn(60); // server-side OTP resend windows (Supabase) + client spam guard
     setLoading(true);
     try {
@@ -83,6 +119,7 @@ export const LoginOtpScreen: React.FC = () => {
           setErrorMsg(error.message);
         }
       } else {
+        setSmsFallback(false);
         setStep('otp');
       }
     } catch {
@@ -96,6 +133,49 @@ export const LoginOtpScreen: React.FC = () => {
     setErrorMsg(null);
     if (!isOtpValid) {
       setErrorMsg(t.invalidOtpError);
+      return;
+    }
+
+    // Firebase path: confirm OTP -> Firebase ID token -> real Supabase
+    // session via signInWithIdToken (Firebase configured as third-party auth
+    // in the Supabase project). RLS/auth.uid() work unchanged afterwards.
+    if (authMode === 'firebase' && !smsFallback) {
+      setLoading(true);
+      try {
+        const { idToken, phone } = await confirmFirebaseOtp(otpDigits.trim());
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'firebase',
+          token: idToken,
+        });
+        if (error) {
+          setErrorMsg(error.message);
+          return;
+        }
+        const user = data.user;
+        if (user) {
+          // Bootstrap the profile row (auth.users trigger absent). Idempotent.
+          await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: user.id,
+                phone: phone ?? normalizedPhone,
+                full_name: `ZAFF user ${(phone ?? normalizedPhone).slice(-4)}`,
+              },
+              { onConflict: 'id' },
+            );
+          const metaRole = user.app_metadata?.role as UserRole | undefined;
+          setSession(user.id, phone ?? normalizedPhone, metaRole ?? 'customer');
+        }
+      } catch (err) {
+        setErrorMsg(
+          err instanceof Error && err.message && err.message !== 'NO_PENDING_LOGIN'
+            ? err.message
+            : t.errorGeneric,
+        );
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -229,13 +309,14 @@ export const LoginOtpScreen: React.FC = () => {
               <View style={styles.fieldGroup}>
                 <View style={styles.otpHeaderRow}>
                   <Text style={[styles.label, { color: surface.textSecondary }]}>
-                    {t.otpLabel} ({normalizedPhone})
+                    {t.otpLabel} ({normalizedPhone}) · {activeOtpChannelLabel()}
                   </Text>
                   <Pressable
                     onPress={() => {
                       setStep('phone');
                       setOtpDigits('');
                       setErrorMsg(null);
+                      resetFirebaseOtpFlow();
                     }}
                     accessibilityRole="button"
                     style={styles.textLinkBtn}
