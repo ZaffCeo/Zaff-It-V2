@@ -16,8 +16,10 @@ import { FlashList } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   BRAND_COLORS,
+  BRAND_GRADIENTS,
   GLOW,
   RADII,
   SPACING,
@@ -66,6 +68,7 @@ interface CatalogueProduct {
   unit_label: string;
   eta_min_minutes: number;
   eta_max_minutes: number;
+  image_url?: string | null;
 }
 
 interface CategoryTile {
@@ -73,14 +76,15 @@ interface CategoryTile {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   tint: string;
+  tintBg: string;
 }
 
 const TOP_CATEGORIES: CategoryTile[] = [
-  { id: 'Fruits & Veggies', label: 'Fruits &\nVeggies', icon: 'nutrition-outline', tint: '#16A34A' },
-  { id: 'Groceries', label: 'Groceries', icon: 'bag-handle-outline', tint: '#D97706' },
-  { id: 'Dairy & Breakfast', label: 'Dairy &\nBreakfast', icon: 'cafe-outline', tint: '#2563EB' },
-  { id: 'Snacks & Munchies', label: 'Snacks &\nMunchies', icon: 'fast-food-outline', tint: '#DC2626' },
-  { id: 'Home Care', label: 'Home Care', icon: 'sparkles-outline', tint: '#0284C7' },
+  { id: 'Fruits & Veggies', label: 'Fruits &\nVeggies', icon: 'nutrition-outline', tint: '#16A34A', tintBg: 'rgba(22,163,74,0.16)' },
+  { id: 'Groceries', label: 'Groceries', icon: 'bag-handle-outline', tint: '#D97706', tintBg: 'rgba(217,119,6,0.16)' },
+  { id: 'Dairy & Breakfast', label: 'Dairy &\nBreakfast', icon: 'cafe-outline', tint: '#2563EB', tintBg: 'rgba(37,99,235,0.16)' },
+  { id: 'Snacks & Munchies', label: 'Snacks &\nMunchies', icon: 'fast-food-outline', tint: '#DC2626', tintBg: 'rgba(220,38,38,0.16)' },
+  { id: 'Home Care', label: 'Home Care', icon: 'sparkles-outline', tint: '#0284C7', tintBg: 'rgba(2,132,199,0.16)' },
 ];
 
 const ZAFFY_QUICK_PROMPTS = [
@@ -312,6 +316,7 @@ export const CustomerHomeScreen: React.FC = () => {
           unit_label: String(row.unit_label ?? '1 unit'),
           eta_min_minutes: primaryStore.eta_min_minutes,
           eta_max_minutes: primaryStore.eta_max_minutes,
+          image_url: typeof row.image_url === 'string' && row.image_url.length > 0 ? row.image_url : null,
         }),
       );
       setProducts(mapped);
@@ -414,13 +419,29 @@ export const CustomerHomeScreen: React.FC = () => {
 
   const totals = computeLocalCartTotalsPaise(cartItems, zone);
   const totalCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
+  const etaLabel = products[0]
+    ? `${products[0].eta_min_minutes}-${products[0].eta_max_minutes} min`
+    : '12 min';
+  const freeDeliveryThresholdPaise = Math.trunc(zone.freeDeliveryThresholdPaise);
+  const remainingForFreePaise = Math.max(0, freeDeliveryThresholdPaise - totals.subtotalPaise);
+  const freeProgressPct = Math.min(
+    1,
+    totals.subtotalPaise / Math.max(1, freeDeliveryThresholdPaise),
+  );
 
   const renderProductCard = ({ item }: { item: CatalogueProduct }) => {
     const inCart = cartItems.find((c) => c.productId === item.product_id);
     const outOfStock = item.available_to_sell <= 0;
     const isWishlisted = Boolean(wishlistIds[item.product_id]);
     const savingsPaise = Math.max(0, item.mrp_paise - item.selling_price_paise);
-    const badgeLabel = savingsPaise > 0 ? `${formatPaise(savingsPaise)} OFF` : 'FRESH';
+    const discountPct =
+      item.mrp_paise > item.selling_price_paise
+        ? Math.round(((item.mrp_paise - item.selling_price_paise) / item.mrp_paise) * 100)
+        : 0;
+    const imageUrl =
+      typeof item.image_url === 'string' && item.image_url.length > 0
+        ? item.image_url
+        : null;
 
     return (
       <View
@@ -432,30 +453,55 @@ export const CustomerHomeScreen: React.FC = () => {
           },
         ]}
       >
-        <View style={styles.productTopRow}>
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountBadgeText}>{badgeLabel}</Text>
+        {/* Visual: real photography (DB image_url) with emoji fallback */}
+        <View style={[styles.productVisualBox, { backgroundColor: surface.surface2 }]}>
+          {imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.productImage}
+              resizeMode="contain"
+              accessibilityLabel={item.name}
+            />
+          ) : (
+            <Text style={styles.productArtText} accessibilityLabel={item.name}>
+              {pickProductArt(item.name)}
+            </Text>
+          )}
+
+          {/* Blinkit-style discount badge */}
+          <View
+            style={[
+              styles.discountBadge,
+              discountPct > 0 ? null : styles.freshBadge,
+            ]}
+          >
+            <Text
+              style={[
+                styles.discountBadgeText,
+                discountPct > 0 ? null : styles.freshBadgeText,
+              ]}
+            >
+              {discountPct > 0 ? `${discountPct}% OFF` : 'FRESH'}
+            </Text>
           </View>
+
           <Pressable
             onPress={() => toggleWishlist(item.product_id)}
             accessibilityRole="button"
             accessibilityLabel={`Wishlist ${item.name}`}
             style={styles.heartBtn}
+            hitSlop={TOUCH_TARGETS.hitSlopDefault}
           >
             <Ionicons
               name={isWishlisted ? 'heart' : 'heart-outline'}
-              size={18}
+              size={17}
               color={isWishlisted ? STATUS_COLORS.error : surface.textMuted}
             />
           </Pressable>
-        </View>
 
-        <View style={[styles.productVisualBox, { backgroundColor: surface.surface2 }]}>
-          <Text style={styles.productArtText} accessibilityLabel={item.name}>
-            {pickProductArt(item.name)}
-          </Text>
+          {/* ETA promise chip overlay (glass) */}
           <View style={styles.etaChip}>
-            <Ionicons name="flash" size={11} color={BRAND_COLORS.electricGreen} />
+            <Ionicons name="flash" size={10} color={BRAND_COLORS.electricGreen} />
             <Text style={[styles.etaText, { color: BRAND_COLORS.electricGreen }]}>
               {item.eta_min_minutes}-{item.eta_max_minutes} {t.etaUnit}
             </Text>
@@ -502,8 +548,9 @@ export const CustomerHomeScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={`Decrease ${item.name}`}
                 style={styles.stepperBtn}
+                hitSlop={TOUCH_TARGETS.hitSlopDefault}
               >
-                <Ionicons name="remove" size={16} color={BRAND_COLORS.pureWhite} />
+                <Ionicons name="remove" size={15} color={BRAND_COLORS.pureWhite} />
               </Pressable>
               <Text style={styles.stepperQty}>{inCart.quantity}</Text>
               <Pressable
@@ -511,8 +558,9 @@ export const CustomerHomeScreen: React.FC = () => {
                 accessibilityRole="button"
                 accessibilityLabel={`Increase ${item.name}`}
                 style={styles.stepperBtn}
+                hitSlop={TOUCH_TARGETS.hitSlopDefault}
               >
-                <Ionicons name="add" size={16} color={BRAND_COLORS.pureWhite} />
+                <Ionicons name="add" size={15} color={BRAND_COLORS.pureWhite} />
               </Pressable>
             </View>
           ) : (
@@ -522,13 +570,20 @@ export const CustomerHomeScreen: React.FC = () => {
               accessibilityLabel={`${t.addBtn} ${item.name}`}
               style={({ pressed }) => [
                 styles.addButton,
-                { opacity: pressed ? 0.85 : 1 },
+                { opacity: pressed ? 0.88 : 1 },
               ]}
             >
+              <Ionicons name="add" size={14} color={BRAND_COLORS.pureWhite} />
               <Text style={styles.addButtonText}>{t.addBtn}</Text>
             </Pressable>
           )}
         </View>
+
+        {savingsPaise > 0 ? (
+          <Text style={styles.savingsText}>
+            You save {formatPaise(savingsPaise)}
+          </Text>
+        ) : null}
       </View>
     );
   };
@@ -618,6 +673,10 @@ export const CustomerHomeScreen: React.FC = () => {
             Home • {zone.city}
           </Text>
         </View>
+        <View style={styles.etaPill}>
+          <Ionicons name="flash" size={11} color={BRAND_COLORS.electricGreen} />
+          <Text style={styles.etaPillText}>{etaLabel}</Text>
+        </View>
         <Ionicons name="chevron-down" size={18} color={surface.textSecondary} />
       </Pressable>
 
@@ -629,7 +688,7 @@ export const CustomerHomeScreen: React.FC = () => {
           onChangeText={setSearchQuery}
           placeholder="Need-It? Zaff-It. Search anything..."
           placeholderTextColor="#94A3B8"
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: surface.textPrimary }]}
         />
         <Pressable
           onPress={() => openZaffyWithPrompt('')}
@@ -771,7 +830,7 @@ export const CustomerHomeScreen: React.FC = () => {
               <View
                 style={[
                   styles.catIconBox,
-                  { backgroundColor: surface.surface2 },
+                  { backgroundColor: active ? BRAND_COLORS.goldenYellowGlow : cat.tintBg },
                 ]}
               >
                 <Ionicons name={cat.icon} size={24} color={cat.tint} />
@@ -888,33 +947,84 @@ export const CustomerHomeScreen: React.FC = () => {
         />
       )}
 
-      {/* Floating Cart Bar */}
+      {/* Floating Cart Bar — free-delivery progress (Blinkit pattern) + gold CTA */}
       {totalCount > 0 ? (
         <View style={styles.floatingCartWrap}>
+          <View
+            style={[
+              styles.freeDeliveryCard,
+              { backgroundColor: surface.surface1, borderColor: surface.border },
+            ]}
+          >
+            <Ionicons
+              name={remainingForFreePaise > 0 ? 'bicycle-outline' : 'checkmark-circle'}
+              size={16}
+              color={
+                remainingForFreePaise > 0
+                  ? BRAND_COLORS.goldenYellowPressed
+                  : BRAND_COLORS.electricGreen
+              }
+            />
+            <Text
+              style={[
+                styles.freeDeliveryText,
+                { color: surface.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {remainingForFreePaise > 0
+                ? `${formatPaise(remainingForFreePaise)} more for FREE delivery`
+                : 'FREE delivery unlocked!'}
+            </Text>
+            <View
+              style={[styles.freeProgressTrack, { backgroundColor: surface.surface3 }]}
+            >
+              <View
+                style={[
+                  styles.freeProgressFill,
+                  {
+                    width: `${Math.round(freeProgressPct * 100)}%`,
+                    backgroundColor:
+                      remainingForFreePaise > 0
+                        ? BRAND_COLORS.goldenYellow
+                        : BRAND_COLORS.electricGreen,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
           <Pressable
             onPress={() => navigation.navigate('CartTab')}
             accessibilityRole="button"
             style={({ pressed }) => [
               styles.floatingCartBar,
-              { opacity: pressed ? 0.9 : 1 },
+              { opacity: pressed ? 0.92 : 1 },
             ]}
           >
-            <View>
-              <Text style={styles.floatingCartCount}>
-                {totalCount} {t.itemsInCart}
-              </Text>
-              <Text style={styles.floatingCartTotal}>
-                {formatPaise(totals.grandTotalPaise)}
-              </Text>
-            </View>
-            <View style={styles.floatingCartCta}>
-              <Text style={styles.floatingCartCtaText}>{t.viewCartBtn}</Text>
-              <Ionicons
-                name="arrow-forward"
-                size={18}
-                color={BRAND_COLORS.pureWhite}
-              />
-            </View>
+            <LinearGradient
+              colors={BRAND_GRADIENTS.gold}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.floatingCartGradient}
+            >
+              <View>
+                <Text style={styles.floatingCartCount}>
+                  {totalCount} {t.itemsInCart}
+                </Text>
+                <Text style={styles.floatingCartTotal}>
+                  {formatPaise(totals.grandTotalPaise)}
+                </Text>
+              </View>
+              <View style={styles.floatingCartCta}>
+                <Text style={styles.floatingCartCtaText}>{t.viewCartBtn}</Text>
+                <Ionicons
+                  name="arrow-forward"
+                  size={18}
+                  color={BRAND_COLORS.charcoalBlack}
+                />
+              </View>
+            </LinearGradient>
           </Pressable>
         </View>
       ) : null}
@@ -1139,16 +1249,16 @@ const styles = StyleSheet.create({
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND_COLORS.charcoalBlack,
-    borderRadius: RADII.full,
-    minHeight: TOUCH_TARGETS.recommendedSize,
-    paddingLeft: SPACING.lg,
-    paddingRight: SPACING.xs,
     gap: SPACING.sm,
+    borderRadius: RADII.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,199,3,0.32)',
+    paddingHorizontal: SPACING.md,
+    height: 50,
+    ...GLOW.goldSoft,
   },
   searchInput: {
     flex: 1,
-    color: BRAND_COLORS.pureWhite,
     fontSize: TYPOGRAPHY.bodyMd.fontSize,
     minHeight: TOUCH_TARGETS.minSize,
   },
@@ -1339,8 +1449,8 @@ const styles = StyleSheet.create({
   },
   catIconBox: {
     width: 52,
-    height: 44,
-    borderRadius: RADII.sm,
+    height: 52,
+    borderRadius: RADII.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1386,64 +1496,85 @@ const styles = StyleSheet.create({
     flex: 1,
     margin: 4,
     padding: SPACING.sm,
-    borderRadius: RADII.md,
+    borderRadius: RADII.lg,
     borderWidth: 1,
     gap: SPACING.xs,
+    overflow: 'hidden',
   },
-  productTopRow: {
-    flexDirection: 'row',
+  productVisualBox: {
+    height: 96,
+    borderRadius: RADII.md,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  productArtText: {
+    fontSize: 44,
   },
   discountBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
     backgroundColor: BRAND_COLORS.electricGreen,
-    paddingHorizontal: SPACING.sm,
+    paddingHorizontal: 6,
     paddingVertical: 3,
-    borderRadius: RADII.sm,
+    borderRadius: 6,
   },
   discountBadgeText: {
     color: BRAND_COLORS.pureWhite,
-    fontSize: TYPOGRAPHY.captionMin.fontSize,
+    fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  freshBadge: {
+    backgroundColor: BRAND_COLORS.goldenYellow,
+  },
+  freshBadgeText: {
+    color: BRAND_COLORS.charcoalBlack,
   },
   heartBtn: {
-    minWidth: TOUCH_TARGETS.minSize,
-    minHeight: TOUCH_TARGETS.minSize,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: -8,
-    marginTop: -6,
-  },
-  productVisualBox: {
-    height: 84,
-    borderRadius: RADII.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  productArtText: {
-    fontSize: 40,
   },
   etaChip: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    backgroundColor: 'rgba(12,131,31,0.10)',
+    gap: 3,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     borderRadius: RADII.full,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
   },
   etaText: {
-    fontSize: TYPOGRAPHY.captionMin.fontSize,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '800',
   },
   productName: {
-    fontSize: TYPOGRAPHY.labelLg.fontSize,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '700',
     minHeight: 36,
   },
   unitLabel: {
     fontSize: TYPOGRAPHY.captionMin.fontSize,
+  },
+  savingsText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: BRAND_COLORS.electricGreen,
+    marginTop: -2,
   },
   productBottomRow: {
     flexDirection: 'row',
@@ -1456,7 +1587,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   sellingPrice: {
-    fontSize: TYPOGRAPHY.labelLg.fontSize,
+    fontSize: 15,
     fontWeight: '800',
   },
   mrpPrice: {
@@ -1464,18 +1595,18 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   },
   addButton: {
-    minWidth: 64,
-    minHeight: TOUCH_TARGETS.minSize,
+    minWidth: 68,
+    minHeight: 42,
     borderRadius: RADII.sm,
-    borderWidth: 1,
-    borderColor: BRAND_COLORS.electricGreen,
-    backgroundColor: BRAND_COLORS.pureWhite,
+    backgroundColor: BRAND_COLORS.electricGreen,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
+    gap: 2,
   },
   addButtonText: {
-    color: BRAND_COLORS.electricGreen,
+    color: BRAND_COLORS.pureWhite,
     fontSize: TYPOGRAPHY.labelMd.fontSize,
     fontWeight: '800',
   },
@@ -1484,11 +1615,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: BRAND_COLORS.electricGreen,
     borderRadius: RADII.sm,
-    minHeight: TOUCH_TARGETS.minSize,
+    minHeight: 42,
   },
   stepperBtn: {
-    minWidth: TOUCH_TARGETS.minSize,
-    minHeight: TOUCH_TARGETS.minSize,
+    minWidth: 34,
+    minHeight: 42,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1500,7 +1631,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   oosBadge: {
-    minHeight: TOUCH_TARGETS.minSize,
+    minHeight: 42,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADII.sm,
     borderWidth: 1,
@@ -1516,22 +1647,51 @@ const styles = StyleSheet.create({
     right: SPACING.screenPadding,
     bottom: SPACING.md,
   },
+  freeDeliveryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderRadius: RADII.md,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  freeDeliveryText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.bodySm.fontSize,
+    fontWeight: '700',
+  },
+  freeProgressTrack: {
+    width: 64,
+    height: 6,
+    borderRadius: RADII.full,
+    overflow: 'hidden',
+  },
+  freeProgressFill: {
+    height: '100%',
+    borderRadius: RADII.full,
+  },
   floatingCartBar: {
     minHeight: TOUCH_TARGETS.primaryCtaHeight,
-    backgroundColor: BRAND_COLORS.electricGreen,
     borderRadius: RADII.md,
+    overflow: 'hidden',
+    ...GLOW.goldSoft,
+  },
+  floatingCartGradient: {
+    minHeight: TOUCH_TARGETS.primaryCtaHeight,
     paddingHorizontal: SPACING.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   floatingCartCount: {
-    color: BRAND_COLORS.pureWhite,
+    color: 'rgba(18,20,22,0.78)',
     fontSize: TYPOGRAPHY.captionMin.fontSize,
     fontWeight: '700',
   },
   floatingCartTotal: {
-    color: BRAND_COLORS.pureWhite,
+    color: BRAND_COLORS.charcoalBlack,
     fontSize: TYPOGRAPHY.titleMd.fontSize,
     fontWeight: '800',
   },
@@ -1541,9 +1701,23 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   floatingCartCtaText: {
-    color: BRAND_COLORS.pureWhite,
+    color: BRAND_COLORS.charcoalBlack,
     fontSize: TYPOGRAPHY.labelLg.fontSize,
     fontWeight: '800',
+  },
+  etaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(12,131,31,0.12)',
+    borderRadius: RADII.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  etaPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: BRAND_COLORS.electricGreen,
   },
   modalBackdrop: {
     flex: 1,
