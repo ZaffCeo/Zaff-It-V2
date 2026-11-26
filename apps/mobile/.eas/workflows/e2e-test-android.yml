@@ -1,0 +1,31 @@
+name: Android E2E Test
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/mobile/**
+      - packages/shared/**
+  pull_request:
+    branches:
+      - main
+    paths:
+      - apps/mobile/**
+      - packages/shared/**
+
+jobs:
+  build_android_e2e:
+    name: Build Android E2E APK
+    type: build
+    params:
+      platform: android
+      profile: e2e-test
+
+  maestro_e2e:
+    name: Run Maestro Customer Checkout E2E
+    needs: [build_android_e2e]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_android_e2e.outputs.build_id }}
+      flow_path: .maestro/customer_checkout.yml

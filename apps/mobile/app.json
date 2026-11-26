@@ -1,0 +1,73 @@
+{
+  "expo": {
+    "name": "ZAFF-IT",
+    "slug": "zaff-it",
+    "scheme": "zaffit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/zaff-it-logo.jpg",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/zaff-it-logo.jpg",
+      "backgroundColor": "#121416",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.zafftechnology.zaffit",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ZAFF-IT uses your location to check delivery availability in Makrana and show nearby stores."
+      }
+    },
+    "android": {
+      "package": "com.zafftechnology.zaffit",
+      "versionCode": 1,
+      "compileSdkVersion": 36,
+      "targetSdkVersion": 36,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/zaff-it-logo.jpg",
+        "backgroundColor": "#121416"
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_CONTACTS"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow ZAFF-IT to check Makrana delivery serviceability and nearby stores."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 24,
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-expo-eas-project-uuid"
+      }
+    }
+  }
+}
