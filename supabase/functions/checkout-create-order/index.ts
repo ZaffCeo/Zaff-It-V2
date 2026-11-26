@@ -76,11 +76,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const customerId = authData.user.id;
 
+  // AUD-HIGH-3: hard input-size gates BEFORE schema parsing. Zod <4.6.6 can
+  // exhaust memory validating oversized collections (GHSA-mrhx-c7xc-m3w5), so
+  // cap request size and array cardinality before any schema work.
+  const contentLength = Number(req.headers.get('content-length') ?? '0');
+  if (Number.isFinite(contentLength) && contentLength > 65_536) {
+    return jsonError(413, 'VALIDATION_ERROR', 'Request body too large', requestId);
+  }
   let rawBody: unknown;
   try {
     rawBody = await req.json();
   } catch {
     return jsonError(400, 'VALIDATION_ERROR', 'Invalid JSON body', requestId);
+  }
+  if (
+    rawBody !== null &&
+    typeof rawBody === 'object' &&
+    Array.isArray((rawBody as { items?: unknown }).items)
+  ) {
+    if ((rawBody as { items: unknown[] }).items.length > 100) {
+      return jsonError(400, 'VALIDATION_ERROR', 'Too many items (max 100)', requestId);
+    }
   }
 
   const parsed = checkoutSchema.safeParse(rawBody);
@@ -105,11 +121,61 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (existingOrder.customer_id !== customerId || existingOrder.store_id !== payload.store_id || existingOrder.payment_method !== payload.payment_method) {
       return jsonError(409, 'IDEMPOTENCY_CONFLICT', 'Idempotency-Key already used with different payload', requestId);
     }
-    const { data: existingPayment } = await adminClient
+    let existingPayment = (await adminClient
       .from('payments')
       .select('provider, razorpay_order_id, amount_paise, currency')
       .eq('order_id', existingOrder.id)
-      .maybeSingle();
+      .maybeSingle()).data;
+
+    // AUD-MED-4: if the first attempt created the order but died before/while
+    // creating the Razorpay order, re-create it here so the retry can pay.
+    if (
+      existingOrder.payment_method === 'razorpay' &&
+      (!existingPayment || !existingPayment.razorpay_order_id)
+    ) {
+      const rzpKeyId = Deno.env.get('RAZORPAY_KEY_ID');
+      const rzpKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
+      if (rzpKeyId && rzpKeySecret) {
+        const rzpRetry = await fetch('https://api.razorpay.com/v1/orders', {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${btoa(`${rzpKeyId}:${rzpKeySecret}`)}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            amount: existingOrder.total_paise,
+            currency: 'INR',
+            receipt: existingOrder.order_number,
+            notes: { order_id: existingOrder.id, customer_id: customerId, retry: 'true' },
+          }),
+        });
+        if (rzpRetry.ok) {
+          const rzpJson = (await rzpRetry.json()) as { id: string };
+          if (existingPayment) {
+            await adminClient
+              .from('payments')
+              .update({ razorpay_order_id: rzpJson.id })
+              .eq('order_id', existingOrder.id);
+            existingPayment = { ...existingPayment, razorpay_order_id: rzpJson.id };
+          } else {
+            const { data: insertedPayment } = await adminClient
+              .from('payments')
+              .insert({
+                order_id: existingOrder.id,
+                provider: 'razorpay',
+                method: 'razorpay',
+                amount_paise: existingOrder.total_paise,
+                currency: 'INR',
+                status: 'created',
+                razorpay_order_id: rzpJson.id,
+              })
+              .select('provider, razorpay_order_id, amount_paise, currency')
+              .maybeSingle();
+            existingPayment = insertedPayment ?? existingPayment;
+          }
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({

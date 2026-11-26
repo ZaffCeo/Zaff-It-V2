@@ -87,10 +87,12 @@ export const OrderTrackingScreen: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
+      // AUD-LOW-7: orders table has no delivery_otp column (it lives in the
+      // deny-all vault table). Use the customer-scoped security-definer RPC.
       const { data, error } = await supabase
         .from('orders')
         .select(
-          'id, order_number, status, grand_total_paise, eta_min_minutes, eta_max_minutes, delivery_otp',
+          'id, order_number, status, grand_total_paise, eta_min_minutes, eta_max_minutes',
         )
         .eq('id', activeOrderId)
         .single();
@@ -98,6 +100,19 @@ export const OrderTrackingScreen: React.FC = () => {
       if (error) {
         setErrorMsg(error.message);
         return;
+      }
+
+      let deliveryOtp: string | null = null;
+      try {
+        const { data: otpData, error: otpError } = await supabase.rpc(
+          'get_my_delivery_otp',
+          { p_order_id: activeOrderId },
+        );
+        if (!otpError && typeof otpData === 'string') {
+          deliveryOtp = otpData;
+        }
+      } catch {
+        // OTP display is best-effort; tracking still works without it
       }
 
       if (data) {
@@ -108,7 +123,7 @@ export const OrderTrackingScreen: React.FC = () => {
           grand_total_paise: Math.trunc(Number(data.grand_total_paise ?? 0)),
           eta_min_minutes: Math.trunc(Number(data.eta_min_minutes ?? 20)),
           eta_max_minutes: Math.trunc(Number(data.eta_max_minutes ?? 30)),
-          delivery_otp: data.delivery_otp ? String(data.delivery_otp) : null,
+          delivery_otp: deliveryOtp,
           rider_name: null,
         });
       }

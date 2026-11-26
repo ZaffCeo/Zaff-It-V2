@@ -79,9 +79,11 @@ export const LoginOtpScreen: React.FC = () => {
     }
 
     if (!isSupabaseConfigured()) {
-      // Demo mode: allow ?role=merchant|rider|admin on web for preview builds.
+      // AUD-LOW-6: demo role switch allowed ONLY in development builds with
+      // no backend configured — never when EXPO_PUBLIC_ENV is staging/production.
       let demoRole: UserRole | null = null;
-      if (typeof window !== 'undefined') {
+      const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
+      if (isDevelopmentEnv && typeof window !== 'undefined') {
         const param = new URLSearchParams(window.location.search).get('role');
         if (param === 'merchant' || param === 'rider' || param === 'admin') {
           demoRole = param;

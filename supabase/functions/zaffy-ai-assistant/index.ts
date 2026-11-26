@@ -8,7 +8,38 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const MODEL_ID = 'gemini-4-hydrogen';
+// AUD-MED-5: configurable model (was a non-existent hardcoded id that made
+// every call fail). Default matches docs/.env.example (GEMINI_MODEL).
+const MODEL_ID = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.5-flash';
+
+// AUD-MED-5: per-user + global sliding-window rate limits to prevent API cost
+// abuse. In-isolate memory is per-instance; combined with the 500-char query
+// cap this is an effective MVP control. Alerting/persistent counters are a
+// Phase-5 hardening item.
+const USER_RATE_LIMIT = 10;        // queries per user
+const GLOBAL_RATE_LIMIT = 120;     // queries per window across users
+const RATE_WINDOW_MS = 60_000;
+const userHits = new Map<string, number[]>();
+let globalHits: number[] = [];
+
+function rateLimit(key: string | null): { allowed: boolean; retryAfterSec: number } {
+  const now = Date.now();
+  globalHits = globalHits.filter((t) => now - t < RATE_WINDOW_MS);
+  if (globalHits.length >= GLOBAL_RATE_LIMIT) {
+    return { allowed: false, retryAfterSec: Math.ceil((RATE_WINDOW_MS - (now - globalHits[0])) / 1000) };
+  }
+  globalHits.push(now);
+  if (key) {
+    const hits = (userHits.get(key) ?? []).filter((t) => now - t < RATE_WINDOW_MS);
+    if (hits.length >= USER_RATE_LIMIT) {
+      return { allowed: false, retryAfterSec: Math.ceil((RATE_WINDOW_MS - (now - hits[0])) / 1000) };
+    }
+    hits.push(now);
+    userHits.set(key, hits);
+    if (userHits.size > 10_000) userHits.clear(); // isolate memory guard
+  }
+  return { allowed: true, retryAfterSec: 0 };
+}
 
 const requestSchema = z.object({
   query: z.string().trim().min(1).max(500),
@@ -53,6 +84,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: authData, error: authErr } = await supabase.auth.getUser();
   if (authErr || !authData.user) {
     return jsonError(401, 'UNAUTHORIZED', 'Invalid or expired Supabase JWT', requestId);
+  }
+
+  const rl = rateLimit(authData.user.id);
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: { code: 'RATE_LIMITED', message: 'Too many Zaffy queries. Try again shortly.', request_id: requestId },
+      }),
+      {
+        status: 429,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSec) },
+      },
+    );
   }
 
   let body: unknown;
