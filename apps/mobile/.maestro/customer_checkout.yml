@@ -1,0 +1,69 @@
+appId: com.zafftechnology.zaffit
+name: ZAFF-IT Makrana Customer Checkout E2E
+tags:
+  - android
+  - customer
+  - checkout
+---
+- launchApp:
+    clearState: true
+
+# 1. Handle Splash/Onboarding if presented on fresh launch
+- runFlow:
+    when:
+      visible: "MAKRANA PILOT"
+    commands:
+      - tapOn:
+          text: "Continue|Get Started|Skip"
+          optional: true
+
+# 2. Handle OTP Login if presented
+- runFlow:
+    when:
+      visible: "Send OTP"
+    commands:
+      - tapOn:
+          text: "Enter.*phone|Mobile.*"
+          optional: true
+      - inputText: "9876543210"
+      - tapOn: "Send OTP"
+      - tapOn:
+          text: "Verify.*"
+          optional: true
+
+# 3. Verify Makrana Customer Home
+- extendedWaitUntil:
+    visible: "Kya mangwana hai?"
+    timeout: 15000
+- assertVisible: "Need-It? Zaff-It. Search anything..."
+
+# 4. Add a product to Basket
+- scrollUntilVisible:
+    element: "ADD"
+    direction: DOWN
+    timeout: 10000
+- tapOn:
+    text: "ADD"
+    index: 0
+
+# 5. Open Basket tab
+- tapOn: "Basket"
+- extendedWaitUntil:
+    visible: "Basket|Checkout"
+    timeout: 10000
+
+# 6. Select COD or Razorpay and proceed to checkout
+- scrollUntilVisible:
+    element: "Cash on Delivery|COD"
+    direction: DOWN
+    timeout: 8000
+- tapOn:
+    text: "Cash on Delivery|COD"
+    optional: true
+- assertVisible:
+    text: "Razorpay|Cash on Delivery|COD"
+- tapOn:
+    text: "Place Order|Pay.*"
+- extendedWaitUntil:
+    visible: "Orders|Order.*|Tracking"
+    timeout: 15000
