@@ -63,6 +63,7 @@
 | **Open Food Facts** | Packaged food (no prices in most markets) | Static | ✅ | ODbL | ⚠️ Prices sparse; use for product facts, not prices |
 | **OpenMRP (openmrp.ai)** | ⚠️ It is a **commercial ERP SaaS** (items/BOM/purchasing API with bearer key), NOT an open MRP database. India-barcode lookup exists (community usage) but terms/pricing unverified | — | ⚠️ Unverified | ⚠️ Assume proprietary | ❌ Do not build on it without a contract |
 | **data.gov.in (other datasets)** | Consumer price indices, e-challan, etc. | Varies | ✅ | GODL | ✅ Secondary |
+| **CEDA AgMarkNet API (Ashoka)** | Cleaned AGMARKNET, 2000–2025, id-based JSON API (api.ceda.ashoka.edu.in) | Daily/historical | ✅ free key | ⚠️ **NON-COMMERCIAL ONLY** (terms: non-commercial use + CEDA-AMD citation + CEDA logo in app) | ❌ Not for Zaff commercial catalog/API — dev/testing only; registered in `sources` table as disabled with `commercial_use=false` license guard |
 | **JioMart / Blinkit / Zepto** | Grocery retail prices | Live | ❌ No public API | ToS prohibit scraping | ❌ No legitimate route; only formal partnerships |
 | **Amazon Product Advertising API** | Amazon catalog + prices | Live | API free, **requires working Amazon Associates account** (must drive sales) | **Affiliate-display only — redistribution in your own catalog/API is prohibited** | ❌ Not for master catalog |
 | **Flipkart Affiliate API** | — | — | — | Program effectively closed to new partners | ❌ |
