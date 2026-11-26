@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BRAND_COLORS,
@@ -225,9 +226,15 @@ export const LoginOtpScreen: React.FC = () => {
 
   return (
     <SafeAreaView
-      style={[styles.safe, { backgroundColor: surface.background }]}
+      style={[styles.safe, { backgroundColor: BRAND_COLORS.charcoalBlack }]}
       edges={['top', 'bottom', 'left', 'right']}
     >
+      {/* Brand glow — visual continuity with the splash screen */}
+      <LinearGradient
+        colors={['rgba(255,199,3,0.16)', 'rgba(255,199,3,0.04)', 'transparent']}
+        style={styles.topGlow}
+        pointerEvents="none"
+      />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -240,10 +247,10 @@ export const LoginOtpScreen: React.FC = () => {
             <View style={styles.logoBadge}>
               <Text style={styles.logoBadgeText}>ZAFF-IT</Text>
             </View>
-            <Text style={[styles.title, { color: surface.textPrimary }]}>
+            <Text style={[styles.title, { color: '#F8F9FA' }]}>
               {t.loginTitle}
             </Text>
-            <Text style={[styles.subtitle, { color: surface.textMuted }]}>
+            <Text style={[styles.subtitle, { color: '#CBD5E1' }]}>
               {t.loginSubtitle}
             </Text>
           </View>
@@ -253,7 +260,7 @@ export const LoginOtpScreen: React.FC = () => {
               styles.card,
               {
                 backgroundColor: surface.surface1,
-                borderColor: surface.border,
+                borderColor: 'rgba(255,199,3,0.28)',
               },
             ]}
           >
@@ -393,7 +400,22 @@ export const LoginOtpScreen: React.FC = () => {
             )}
           </View>
 
-          <Text style={[styles.consentText, { color: surface.textMuted }]}>
+          <View style={styles.trustRow}>
+            <View style={styles.trustChip}>
+              <Ionicons name="shield-checkmark" size={13} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.trustChipText}>100% Secure</Text>
+            </View>
+            <View style={styles.trustChip}>
+              <Ionicons name="flash" size={13} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.trustChipText}>Live ETA</Text>
+            </View>
+            <View style={styles.trustChip}>
+              <Ionicons name="cash-outline" size={13} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.trustChipText}>COD Available</Text>
+            </View>
+          </View>
+
+          <Text style={[styles.consentText, { color: '#94A3B8' }]}>
             {t.privacyConsentPrefix}
           </Text>
         </ScrollView>
@@ -405,6 +427,13 @@ export const LoginOtpScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+  },
+  topGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 320,
   },
   flex: {
     flex: 1,
@@ -445,9 +474,36 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: SPACING.lg,
-    borderRadius: RADII.lg,
+    borderRadius: RADII.xl,
     borderWidth: 1,
     gap: SPACING.md,
+    shadowColor: BRAND_COLORS.goldenYellow,
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  trustRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  trustChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,199,3,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,199,3,0.30)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  trustChipText: {
+    color: BRAND_COLORS.goldenYellow,
+    fontSize: 12,
+    fontWeight: '700',
   },
   fieldGroup: {
     gap: SPACING.md,
