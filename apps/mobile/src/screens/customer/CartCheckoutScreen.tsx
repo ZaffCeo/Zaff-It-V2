@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import {
   BRAND_COLORS,
+  pickProductArt,
   RADII,
   SPACING,
   STATUS_COLORS,
@@ -314,6 +316,11 @@ export const CartCheckoutScreen: React.FC = () => {
   };
 
   const activeTotals = serverTotals ?? localTotals;
+  // True savings vs MRP (independent of promo discounts) — shown in bill summary.
+  const mrpSavingsPaise = cartItems.reduce(
+    (sum, i) => sum + Math.max(0, i.mrpPaise - i.unitPricePaise) * i.quantity,
+    0,
+  );
   const hasSelectedAddress =
     selectedAddressId !== null && selectedAddressLabel.trim().length > 0;
 
@@ -345,6 +352,7 @@ export const CartCheckoutScreen: React.FC = () => {
           />
         </View>
       ) : (
+        <View style={styles.contentWrap}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {errorMsg !== null ? (
             <ErrorRetryBanner
@@ -404,6 +412,20 @@ export const CartCheckoutScreen: React.FC = () => {
           >
             {cartItems.map((item) => (
               <View key={item.productId} style={styles.cartItemRow}>
+                {item.imageUrl ? (
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={styles.itemThumb}
+                    resizeMode="contain"
+                    accessibilityLabel={item.name}
+                  />
+                ) : (
+                  <View style={styles.itemThumbFallback}>
+                    <Text style={styles.itemThumbEmoji}>
+                      {pickProductArt(item.name)}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.itemText}>
                   <Text
                     style={[styles.itemName, { color: surface.textPrimary }]}
@@ -559,6 +581,26 @@ export const CartCheckoutScreen: React.FC = () => {
                 />
               ) : null}
               <SavingsChip savedPaise={activeTotals.discountPaise} />
+              {mrpSavingsPaise > 0 ? (
+                <View style={styles.billLine}>
+                  <Text
+                    style={[
+                      styles.billLabel,
+                      { color: BRAND_COLORS.electricGreen },
+                    ]}
+                  >
+                    Total MRP Savings
+                  </Text>
+                  <Text
+                    style={[
+                      styles.billValue,
+                      { color: BRAND_COLORS.electricGreen },
+                    ]}
+                  >
+                    {formatPaise(mrpSavingsPaise)}
+                  </Text>
+                </View>
+              ) : null}
 
               <View style={styles.billLine}>
                 <Text style={[styles.billLabel, { color: surface.textSecondary }]}>
@@ -700,16 +742,35 @@ export const CartCheckoutScreen: React.FC = () => {
           <Text style={[styles.idempotencyCaption, { color: surface.textMuted }]}>
             Idempotency Ref: {idempotencyKey.slice(0, 13)}...
           </Text>
-
-          <PrimaryButton
-            label={`${t.placeOrderBtn} • ${formatPaise(activeTotals.grandTotalPaise)}`}
-            onPress={handlePlaceOrder}
-            loading={submitting}
-            variant="success"
-            mode={colorScheme}
-            icon="bag-check-outline"
-          />
         </ScrollView>
+
+        {/* Sticky bottom place-order CTA — always visible total (thumb-friendly) */}
+        <View
+          style={[
+            styles.bottomBar,
+            { backgroundColor: surface.surface1, borderTopColor: surface.border },
+          ]}
+        >
+          <View style={styles.bottomTotalWrap}>
+            <Text style={[styles.bottomTotalLabel, { color: surface.textMuted }]}>
+              {t.grandTotalLabel}
+            </Text>
+            <Text style={[styles.bottomTotalValue, { color: surface.textPrimary }]}>
+              {formatPaise(activeTotals.grandTotalPaise)}
+            </Text>
+          </View>
+          <View style={styles.bottomCtaWrap}>
+            <PrimaryButton
+              label={t.placeOrderBtn}
+              onPress={handlePlaceOrder}
+              loading={submitting}
+              variant="success"
+              mode={colorScheme}
+              icon="bag-check-outline"
+            />
+          </View>
+        </View>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -890,6 +951,50 @@ const styles = StyleSheet.create({
   },
   totalDivider: {
     height: 1,
+  },
+  contentWrap: {
+    flex: 1,
+  },
+  itemThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: RADII.sm,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+  },
+  itemThumbFallback: {
+    width: 56,
+    height: 56,
+    borderRadius: RADII.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemThumbEmoji: {
+    fontSize: 30,
+  },
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: SPACING.md,
+    borderTopWidth: 1,
+    paddingHorizontal: SPACING.screenPadding,
+    paddingVertical: SPACING.md,
+  },
+  bottomTotalWrap: {
+    flexShrink: 1,
+  },
+  bottomTotalLabel: {
+    fontSize: TYPOGRAPHY.captionMin.fontSize,
+    fontWeight: '600',
+  },
+  bottomTotalValue: {
+    fontSize: TYPOGRAPHY.headlineMd.fontSize,
+    fontWeight: '800',
+    letterSpacing: TYPOGRAPHY.headlineMd.letterSpacing,
+  },
+  bottomCtaWrap: {
+    flex: 1,
+    maxWidth: 220,
   },
   grandLabel: {
     fontSize: TYPOGRAPHY.titleMd.fontSize,
