@@ -375,6 +375,7 @@ export const OrdersAndSupportScreen: React.FC = () => {
     try {
       if (isSupabaseConfigured() && userId !== null) {
         const { error } = await supabase.from('support_tickets').insert({
+          ticket_number: `TKT-SUP-${Date.now().toString(36).toUpperCase()}`,
           user_id: userId,
           order_id: ticketOrderId,
           category: ticketCategory,

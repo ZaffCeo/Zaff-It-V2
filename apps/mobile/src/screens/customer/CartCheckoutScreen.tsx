@@ -71,6 +71,9 @@ function applyLocalPromoTotals(
   if (normalized === 'ZAFFMAKRANA' && base.subtotalPaise >= 19900) {
     discountPaise = 2500; // ₹25 flat off on Makrana pilot orders >= ₹199
   }
+  if (normalized === 'ZAFFFIRST' && base.subtotalPaise >= 19900) {
+    discountPaise = 5000; // launch coupon: ₹50 flat off on orders >= ₹199 (mirrors coupons row)
+  }
   const grandTotalPaise = Math.max(
     0,
     base.subtotalPaise + base.deliveryFeePaise + base.handlingFeePaise - discountPaise,
