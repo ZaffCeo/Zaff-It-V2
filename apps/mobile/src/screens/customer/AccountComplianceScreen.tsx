@@ -294,6 +294,21 @@ export const AccountComplianceScreen: React.FC = () => {
           </Pressable>
 
           <Pressable
+            onPress={() => navigation.navigate('ZaffId')}
+            accessibilityRole="button"
+            style={[styles.legalRow, { borderColor: BRAND_COLORS.goldenYellow }]}
+          >
+            <Text style={[styles.legalRowText, { color: BRAND_COLORS.goldenYellow, fontWeight: '900' }]}>
+              ZaffID — One ID. Every Zaff.
+            </Text>
+            <Ionicons
+              name="id-card"
+              size={18}
+              color={BRAND_COLORS.goldenYellow}
+            />
+          </Pressable>
+
+          <Pressable
             onPress={() => navigation.navigate('Invite')}
             accessibilityRole="button"
             style={[styles.legalRow, { borderColor: BRAND_COLORS.goldenYellow }]}

@@ -24,6 +24,7 @@ import { RazorpayCheckoutScreen } from '@/screens/customer/RazorpayCheckoutScree
 import { RatingTipScreen } from '@/screens/customer/RatingTipScreen';
 import { InviteScreen } from '@/screens/customer/InviteScreen';
 import { ProScreen } from '@/screens/customer/ProScreen';
+import { ZaffIdScreen } from '@/screens/customer/ZaffIdScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
@@ -59,6 +60,7 @@ export type CustomerStackParamList = {
   RatingTip: { orderId: string } | undefined;
   Invite: undefined;
   Pro: undefined;
+  ZaffId: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -166,6 +168,7 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="RatingTip" component={RatingTipScreen} />
     <CustomerStackNav.Screen name="Invite" component={InviteScreen} />
     <CustomerStackNav.Screen name="Pro" component={ProScreen} />
+    <CustomerStackNav.Screen name="ZaffId" component={ZaffIdScreen} />
   </CustomerStackNav.Navigator>
 );
 
