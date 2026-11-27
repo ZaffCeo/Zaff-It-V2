@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { CustomerStackParamList } from '@/navigation/RootNavigator';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BRAND_COLORS,
@@ -34,6 +37,7 @@ const ROLES: { id: UserRole; label: string }[] = [
 ];
 
 export const AccountComplianceScreen: React.FC = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<CustomerStackParamList>>();
   const language = useAppStore((s) => s.language);
   const colorScheme = useAppStore((s) => s.colorScheme);
   const phone = useAppStore((s) => s.phone);
@@ -273,6 +277,21 @@ export const AccountComplianceScreen: React.FC = () => {
           <Text style={[styles.sectionTitle, { color: surface.textPrimary }]}>
             {t.legalSectionTitle}
           </Text>
+
+          <Pressable
+            onPress={() => navigation.navigate('Invite')}
+            accessibilityRole="button"
+            style={[styles.legalRow, { borderColor: BRAND_COLORS.goldenYellow }]}
+          >
+            <Text style={[styles.legalRowText, { color: BRAND_COLORS.goldenYellow, fontWeight: '900' }]}>
+              Invite & Earn — Gift ₹50, Get ₹50
+            </Text>
+            <Ionicons
+              name="gift"
+              size={18}
+              color={BRAND_COLORS.goldenYellow}
+            />
+          </Pressable>
 
           <Pressable
             onPress={() => setLegalModal('privacy')}
