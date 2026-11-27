@@ -50,13 +50,13 @@ Legend: ✅ DONE+working · 🟡 PARTIAL (exists, spec-rules pending) · ⛔ MIS
 3. **Seller per-order fee ₹5-10** model vs current commission_bps — decide + implement.
 4. **Rider COD pause rule** (10PM tak settle nahi → next-day pause) — rider app flow.
 
-## 5. Recommended next wave order (doc-priority × effort)
-1. **W3 (already queued): live-tracking/rating/tip** (Stitch) — customer polish
-2. **W4: Monetization pack** — Invite L1-L4 + Pro plans + Ads-sponsored slots + wallet 10%-cap rules (ek saath, ek PR)
-3. **W5: Delivery engine doc-align** — slabs, handling, night zone, rider escalation ladder
-4. **W6: Roles expansion** — Service Provider (quote engine + escrow) pehle, phir Sawari/Move/Express
-5. **W7: Medicine + Laundry** verticals
-6. Brand asset swap (naya logo + coin icons + mascot) — chhota, W4 ke saath karna best
+## 5. Recommended next wave order (doc-priority × effort) — UPDATED 2026-11-27: W3/W4/W5/W6 DONE ✅
+1. ~~W3: live-tracking/rating/tip~~ ✅ shipped (022, commit 40aa387)
+2. ~~W4: Monetization pack~~ ✅ shipped as W4a Invite (026, f4799aa — referral design doc-dishonest tha, ₹50/₹50 + L1-L4 ladder bana), W4b Pro (027, 6b3752c), W4c Zaff Ads (028 — sponsored slots admin-gated, spend ₹0 until founder sets CPC/CPM)
+3. ~~W5: Delivery engine doc-align~~ ✅ shipped (023 pricing + 024 hours/escalation)
+4. ~~W6: Wallet 10%-cap rules~~ ✅ shipped (025) · Roles expansion (Service Provider/Sawari/Move/Express) — ABHI BAAKI
+5. **W7: Medicine + Laundry** verticals — NEXT
+6. Brand asset swap (naya logo + coin icons + mascot) — NEXT (chhota)
 
 ## 6. Founder-side (unchanged standing)
 Razorpay webhook registration · SMS/Twilio creds · R2×5 (Parchi photo + OCR) · DATA_GOV_IN_API_KEY · GST docs (doc: TEST MODE until GST) · Android E2E after EAS creds.

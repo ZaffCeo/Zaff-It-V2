@@ -27,6 +27,7 @@ import { ProScreen } from '@/screens/customer/ProScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
+import { MerchantAdsScreen } from '@/screens/merchant/MerchantAdsScreen';
 import { RiderShiftKycScreen } from '@/screens/rider/RiderShiftKycScreen';
 import { RiderTasksScreen } from '@/screens/rider/RiderTasksScreen';
 import { RiderDeliveryOtpScreen } from '@/screens/rider/RiderDeliveryOtpScreen';
@@ -70,6 +71,7 @@ export type CustomerTabParamList = {
 
 export type MerchantTabParamList = {
   MerchantOrders: undefined;
+  MerchantAds: undefined;
   MerchantCatalog: undefined;
   MerchantKhata: undefined;
   MerchantStore: undefined;
@@ -195,6 +197,12 @@ const MerchantTabs: React.FC = () => (
           onOpenInventory={() => navigation.navigate('MerchantCatalog')}
         />
       )}
+    </MerchantTab.Screen>
+    <MerchantTab.Screen
+      name="MerchantAds"
+      options={{ title: 'Ads' }}
+    >
+      {() => <MerchantAdsScreen />}
     </MerchantTab.Screen>
     <MerchantTab.Screen
       name="MerchantStore"
