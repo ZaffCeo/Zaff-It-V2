@@ -116,6 +116,10 @@ export const CartCheckoutScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [serverTotals, setServerTotals] = useState<CartTotalsPaise | null>(null);
+  const [applyWallet, setApplyWallet] = useState(false);
+  const [walletInfo, setWalletInfo] = useState<{ balanceCoins: number; usablePaise: number } | null>(
+    null,
+  );
 
   // Stable Idempotency-Key per cart state to prevent duplicate orders on retry
   const cartSignature = useMemo(
@@ -176,6 +180,7 @@ export const CartCheckoutScreen: React.FC = () => {
         handling_fee_paise?: number;
         discount_paise?: number;
         grand_total_paise?: number;
+        wallet?: { balance_coins?: number; usable_coins?: number; usable_paise?: number };
         error?: { message?: string };
       };
 
@@ -197,6 +202,10 @@ export const CartCheckoutScreen: React.FC = () => {
         grandTotalPaise: Math.trunc(
           json.grand_total_paise ?? localTotals.grandTotalPaise,
         ),
+      });
+      setWalletInfo({
+        balanceCoins: Math.trunc(json.wallet?.balance_coins ?? 0),
+        usablePaise: Math.trunc(json.wallet?.usable_paise ?? 0),
       });
     } catch {
       setServerTotals(localTotals);
@@ -295,6 +304,7 @@ export const CartCheckoutScreen: React.FC = () => {
             address_id: selectedAddressId,
             payment_method: paymentMethod,
             coupon_code: promoCode,
+            use_wallet: applyWallet,
             items: cartItems.map((i) => ({
               product_id: i.productId,
               quantity: i.quantity,
@@ -381,6 +391,16 @@ export const CartCheckoutScreen: React.FC = () => {
   };
 
   const activeTotals = serverTotals ?? localTotals;
+
+  // W6 wallet: server-authoritative at checkout; here only a display estimate
+  // (usable <= 10% of product payable; fees are never wallet-paid).
+  const walletDiscountPaise = applyWallet
+    ? Math.min(
+        walletInfo?.usablePaise ?? 0,
+        Math.max(0, activeTotals.subtotalPaise - activeTotals.discountPaise),
+      )
+    : 0;
+  const payableTotalPaise = Math.max(0, activeTotals.grandTotalPaise - walletDiscountPaise);
   // True savings vs MRP (independent of promo discounts) — shown in bill summary.
   const mrpSavingsPaise = cartItems.reduce(
     (sum, i) => sum + Math.max(0, i.mrpPaise - i.unitPricePaise) * i.quantity,
@@ -707,6 +727,56 @@ export const CartCheckoutScreen: React.FC = () => {
                 </View>
               ) : null}
 
+              {(walletInfo?.balanceCoins ?? 0) > 0 ? (
+                <Pressable
+                  onPress={() => setApplyWallet((v) => !v)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    marginTop: 8,
+                    paddingVertical: 8,
+                    paddingHorizontal: 10,
+                    borderRadius: 10,
+                    backgroundColor: applyWallet ? 'rgba(30,215,96,0.10)' : 'transparent',
+                    borderWidth: 1,
+                    borderColor: applyWallet ? BRAND_COLORS.electricGreen : surface.border,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Apply wallet coins"
+                >
+                  <Ionicons
+                    name={applyWallet ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={BRAND_COLORS.electricGreen}
+                  />
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontSize: TYPOGRAPHY.bodySm.fontSize,
+                      fontWeight: '700',
+                      color: surface.textPrimary,
+                    }}
+                  >
+                    Z-Coins wallet · {walletInfo?.balanceCoins ?? 0} coins
+                    {applyWallet && walletDiscountPaise > 0
+                      ? ` (−${formatPaise(walletDiscountPaise)})`
+                      : ` · save up to ${formatPaise(walletInfo?.usablePaise ?? 0)}`}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {walletDiscountPaise > 0 ? (
+                <View style={styles.billLine}>
+                  <Text style={[styles.billLabel, { color: BRAND_COLORS.electricGreen }]}>
+                    Wallet (Z-Coins)
+                  </Text>
+                  <Text style={[styles.billValue, { color: BRAND_COLORS.electricGreen }]}>
+                    -{formatPaise(walletDiscountPaise)}
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={[styles.totalDivider, { backgroundColor: surface.border }]} />
 
               <View style={styles.billLine}>
@@ -714,7 +784,7 @@ export const CartCheckoutScreen: React.FC = () => {
                   {t.grandTotalLabel}
                 </Text>
                 <Text style={[styles.grandValue, { color: surface.textPrimary }]}>
-                  {formatPaise(activeTotals.grandTotalPaise)}
+                  {formatPaise(payableTotalPaise)}
                 </Text>
               </View>
             </View>

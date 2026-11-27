@@ -116,6 +116,7 @@ export const WalletScreen: React.FC = () => {
   const [passbookFilter, setPassbookFilter] = useState<'all' | 'earn' | 'spent'>('all');
   const [bazaarFilter, setBazaarFilter] = useState<'all' | 'flat' | 'free' | 'vip'>('all');
   const [autoApply, setAutoApply] = useState(true);
+  const [first500Claiming, setFirst500Claiming] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const bazaarYRef = useRef(0);
   const faqYRef = useRef(0);
@@ -148,6 +149,32 @@ export const WalletScreen: React.FC = () => {
     const id = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // W6: First 500 users Rs100 bonus (1000 coins, 90-day expiry) — server-counter-guarded.
+  const claimFirst500 = async () => {
+    if (!isSupabaseConfigured() || first500Claiming) return;
+    setFirst500Claiming(true);
+    try {
+      const { data, error } = await supabase.rpc('claim_first500_bonus');
+      if (error) {
+        if (error.message.includes('already claimed')) {
+          setToast('Bonus pehle hi claim ho chuka hai');
+        } else if (error.message.includes('fully claimed')) {
+          setToast('First 500 slots poore ho gaye hain');
+        } else {
+          setToast(error.message);
+        }
+      } else {
+        const credited = (data as { credited_coins?: number } | null)?.credited_coins ?? 0;
+        setBalance((b) => b + credited);
+        setToast(`First 500 bonus mile — ${credited} coins!`);
+      }
+    } catch {
+      setToast('Claim nahi ho paya — thodi der baad try karo');
+    } finally {
+      setFirst500Claiming(false);
+    }
+  };
 
   // Live wallet_ledger + streak + dukans (real session only; demo data stays otherwise).
   React.useEffect(() => {
@@ -243,6 +270,41 @@ export const WalletScreen: React.FC = () => {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
+        {/* W6: First 500 users Rs100 bonus claim */}
+        {isLive ? (
+          <Pressable
+            onPress={claimFirst500}
+            disabled={first500Claiming}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              marginBottom: 12,
+              padding: 12,
+              borderRadius: 14,
+              backgroundColor: surface.surface1,
+              borderWidth: 1,
+              borderColor: BRAND_COLORS.goldenYellow,
+              opacity: first500Claiming ? 0.6 : 1,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Claim first 500 users bonus"
+          >
+            <Ionicons name="gift" size={22} color={BRAND_COLORS.goldenYellow} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '900', color: surface.textPrimary }}>
+                First 500 users — ₹100 bonus
+              </Text>
+              <Text style={{ fontSize: 12, color: surface.textMuted, marginTop: 1 }}>
+                1000 coins (90 din valid) — ek baar claim karo
+              </Text>
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: '900', color: BRAND_COLORS.goldenYellow }}>
+              {first500Claiming ? '…' : 'CLAIM'}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {/* Hero stash card — Stitch gold gradient */}
         <LinearGradient
           colors={['#FFD34D', '#FFC703', '#E0AE00']}

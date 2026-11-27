@@ -374,6 +374,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const totalPaise = Math.max(0, subtotalPaise + deliveryFeePaise + handlingFeePaise - discountPaise);
 
+  // W6 wallet preview (10 coins = Rs1): usable <= 10% of product value, fees never wallet-paid.
+  let walletBalanceCoins = 0;
+  try {
+    const { data: bal } = await adminClient.rpc('wallet_spendable', { p_user_id: userId });
+    walletBalanceCoins = Math.trunc(Number(bal ?? 0));
+  } catch {
+    walletBalanceCoins = 0;
+  }
+  const walletUsableCoins = Math.min(walletBalanceCoins, Math.floor(subtotalPaise / 100));
+
   return jsonResponse(200, {
     store_id: store.id,
     serviceable: true,
@@ -399,6 +409,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     total_paise: totalPaise,
     grand_total_paise: totalPaise,
     delivery_distance_meters: Math.round(distanceMeters),
+    wallet: {
+      balance_coins: walletBalanceCoins,
+      usable_coins: walletUsableCoins,
+      usable_paise: walletUsableCoins * 10,
+    },
     promo_code: promoCode,
     coupon_applied: couponApplied,
     ...(promoError ? { promo_error: promoError } : {}),

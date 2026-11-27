@@ -12,6 +12,7 @@ const checkoutSchema = z.object({
   address_id: z.string().uuid(),
   payment_method: z.enum(['razorpay', 'cod']),
   coupon_code: z.string().trim().min(1).max(32).toUpperCase().optional().nullable(),
+  use_wallet: z.boolean().optional().default(false),
   delivery_instructions: z.string().trim().max(300).optional().nullable(),
   items: z
     .array(
@@ -245,6 +246,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     p_payment_method: payload.payment_method,
     p_idempotency_key: idempotencyKey,
     p_coupon_code: payload.coupon_code ?? null,
+    p_use_wallet: payload.use_wallet,
   });
 
   if (rpcErr || !rpcOrder) {
@@ -304,6 +306,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: rpcOrder.status,
       fulfillment_type: createdOrder?.fulfillment_type ?? 'merchant',
       grand_total_paise: rpcOrder.total_paise,
+      wallet_coins_used: rpcOrder.wallet_coins_used ?? 0,
+      wallet_discount_paise: rpcOrder.wallet_discount_paise ?? 0,
       payment: {
         provider: payload.payment_method,
         razorpay_order_id: razorpayOrderId,
