@@ -333,6 +333,9 @@ export type BannerSlide = {
   cta: string;
   icon?: string;
   palette?: [string, string, string];
+  /** Small badge shown above the headline. Defaults to 'Offer' — only pass
+   * 'Sponsored' when the slide genuinely is a paid placement. */
+  badge?: string;
 };
 
 export function GradientBanner({
@@ -382,7 +385,9 @@ export function GradientBanner({
       >
         <View style={bannerStyles.left}>
           <View style={bannerStyles.sponsoredPill}>
-            <Text style={bannerStyles.sponsoredText}>Sponsored</Text>
+            <Text style={bannerStyles.sponsoredText}>
+              {slide.badge ?? 'Offer'}
+            </Text>
           </View>
           <Text style={bannerStyles.headline} numberOfLines={2}>
             {slide.headline}
@@ -415,6 +420,14 @@ export function GradientBanner({
               resizeMode="cover"
               accessibilityLabel={slide.headline}
             />
+            {/* Readability scrim — blends the art into the gradient surface */}
+            <LinearGradient
+              colors={[palette[1], 'transparent']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 0.55, y: 0.5 }}
+              style={bannerStyles.artScrim}
+              pointerEvents="none"
+            />
           </Animated.View>
         ) : (
           <Animated.View style={[bannerStyles.art, bannerStyles.artFallback, entrance]}>
@@ -445,6 +458,13 @@ export function GradientBanner({
 }
 
 const bannerStyles = StyleSheet.create({
+  artScrim: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   wrap: { borderRadius: RADII.xl, overflow: 'hidden' },
   gradient: {
     borderRadius: RADII.xl,

@@ -50,6 +50,50 @@ export const supabase: SupabaseClient = createClient(
 export const SUPABASE_ANON_KEY = SUPABASE_ANON_KEY_VALUE;
 export const SUPABASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
+export type FreshSession = {
+  /** Valid access token: user JWT when a session exists (refreshed if near expiry), else the public anon key. */
+  token: string;
+  mode: 'user' | 'anon';
+  /** True when the user WAS signed in but the refresh failed — caller should offer re-authentication. */
+  needsReauth: boolean;
+};
+
+/**
+ * Returns a guaranteed-fresh Supabase session token for edge-function calls.
+ *
+ * Root-cause fix for "Invalid or expired Supabase JWT": supabase-js
+ * `getSession()` returns the PERSISTED token without refreshing it, so calls
+ * made after the 1-hour access-token lifetime ship an expired bearer. This
+ * helper refreshes proactively (expiry < 60s) and reports when the user must
+ * re-authenticate instead of silently degrading.
+ *
+ * Falls back to the public anon key only for demo sessions (no user session
+ * at all) — edge functions gate that behind ALLOW_ZAFFY_ANON separately.
+ */
+export async function ensureFreshSession(): Promise<FreshSession> {
+  if (!isSupabaseConfigured()) {
+    return { token: SUPABASE_ANON_KEY_VALUE, mode: 'anon', needsReauth: false };
+  }
+  let session = (await supabase.auth.getSession()).data.session;
+  const expiresAtMs = (session?.expires_at ?? 0) * 1000;
+  const needsRefresh = !session || expiresAtMs - Date.now() < 60_000;
+  if (needsRefresh && session) {
+    try {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      session = refreshed.session ?? session;
+    } catch {
+      // refresh failed — kept the stale session; needsReauth decided below
+    }
+  }
+  if (session?.access_token) {
+    const stillStale =
+      ((session.expires_at ?? 0) * 1000) - Date.now() < 60_000 && needsRefresh;
+    return { token: session.access_token, mode: 'user', needsReauth: stillStale };
+  }
+  // No session at all: genuine demo/anon mode (not a failed refresh of a user)
+  return { token: SUPABASE_ANON_KEY_VALUE, mode: 'anon', needsReauth: false };
+}
+
 export function isSupabaseConfigured(): boolean {
   return (
     Boolean(process.env.EXPO_PUBLIC_SUPABASE_URL) &&

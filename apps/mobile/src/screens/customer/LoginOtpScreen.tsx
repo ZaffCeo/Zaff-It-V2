@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -53,6 +54,9 @@ export const LoginOtpScreen: React.FC = () => {
   // 'supabase' = Supabase native SMS (Twilio) or demo fallback.
   const [authMode, setAuthMode] = useState<'firebase' | 'supabase'>('supabase');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Premium focus states (integrated fields — no boxed look)
+  const [phoneFocused, setPhoneFocused] = useState(false);
+  const [otpFocused, setOtpFocused] = useState(false);
 
   const normalizedPhone = `+91${phoneDigits.replace(/\D/g, '').slice(0, 10)}`;
   const isPhoneValid = phoneDigits.replace(/\D/g, '').length === 10;
@@ -130,9 +134,19 @@ export const LoginOtpScreen: React.FC = () => {
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleOtpChange = (txt: string) => {
+    const digits = txt.replace(/\D/g, '').slice(0, 6);
+    setOtpDigits(digits);
+    // Auto-verify the moment all six digits land (paste & SMS autofill too).
+    if (digits.length === 6 && !loading) {
+      handleVerifyOtp(digits);
+    }
+  };
+
+  const handleVerifyOtp = async (overrideOtp?: unknown) => {
     setErrorMsg(null);
-    if (!isOtpValid) {
+    const code = (typeof overrideOtp === 'string' ? overrideOtp : otpDigits).trim();
+    if (code.length !== 6) {
       setErrorMsg(t.invalidOtpError);
       return;
     }
@@ -143,7 +157,7 @@ export const LoginOtpScreen: React.FC = () => {
     if (authMode === 'firebase' && !smsFallback) {
       setLoading(true);
       try {
-        const { idToken, phone } = await confirmFirebaseOtp(otpDigits.trim());
+        const { idToken, phone } = await confirmFirebaseOtp(code);
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'firebase',
           token: idToken,
@@ -205,7 +219,7 @@ export const LoginOtpScreen: React.FC = () => {
     try {
       const { data, error } = await supabase.auth.verifyOtp({
         phone: normalizedPhone,
-        token: otpDigits.trim(),
+        token: code,
         type: 'sms',
       });
       if (error) {
@@ -244,8 +258,16 @@ export const LoginOtpScreen: React.FC = () => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.headerBlock}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>ZAFF-IT</Text>
+            <Image
+              source={require('../../../assets/zaff-it-logo-wide.png')}
+              style={styles.masterLogo}
+              resizeMode="contain"
+              accessibilityLabel="Zaff-It logo"
+            />
+            <View style={styles.brandRow}>
+              <Text style={styles.brandName}>ZAFF-IT</Text>
+              <View style={styles.brandDot} />
+              <Text style={styles.brandTag}>Need-It? Zaff-It</Text>
             </View>
             <Text style={[styles.title, { color: '#F8F9FA' }]}>
               {t.loginTitle}
@@ -283,7 +305,18 @@ export const LoginOtpScreen: React.FC = () => {
                     styles.phoneInputRow,
                     {
                       backgroundColor: surface.surface2,
-                      borderColor: surface.borderStrong,
+                      borderColor:
+                        errorMsg !== null
+                          ? '#EF4444'
+                          : phoneFocused
+                            ? BRAND_COLORS.goldenYellow
+                            : 'transparent',
+                      borderWidth: phoneFocused || errorMsg !== null ? 1.5 : 0,
+                      shadowColor: BRAND_COLORS.goldenYellow,
+                      shadowOpacity: phoneFocused ? 0.14 : 0,
+                      shadowRadius: 16,
+                      shadowOffset: { width: 0, height: 0 },
+                      elevation: phoneFocused ? 4 : 0,
                     },
                   ]}
                 >
@@ -292,11 +325,14 @@ export const LoginOtpScreen: React.FC = () => {
                   >
                     +91
                   </Text>
+                  <View style={[styles.countryDivider, { backgroundColor: surface.border }]} />
                   <TextInput
                     value={phoneDigits}
                     onChangeText={(txt) =>
                       setPhoneDigits(txt.replace(/\D/g, '').slice(0, 10))
                     }
+                    onFocus={() => setPhoneFocused(true)}
+                    onBlur={() => setPhoneFocused(false)}
                     placeholder={t.phonePlaceholder}
                     placeholderTextColor={surface.textMuted}
                     keyboardType="phone-pad"
@@ -306,6 +342,13 @@ export const LoginOtpScreen: React.FC = () => {
                     style={[styles.input, { color: surface.textPrimary }]}
                     accessibilityLabel={t.phoneLabel}
                   />
+                  {phoneDigits.length === 10 && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color={BRAND_COLORS.electricGreenLight}
+                    />
+                  )}
                 </View>
 
                 <PrimaryButton
@@ -344,29 +387,69 @@ export const LoginOtpScreen: React.FC = () => {
                   </Pressable>
                 </View>
 
-                <TextInput
-                  value={otpDigits}
-                  onChangeText={(txt) =>
-                    setOtpDigits(txt.replace(/\D/g, '').slice(0, 6))
-                  }
-                  placeholder={t.otpPlaceholder}
-                  placeholderTextColor={surface.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  textContentType="oneTimeCode"
-                  autoComplete="sms-otp"
-                  returnKeyType="done"
-                  onSubmitEditing={handleVerifyOtp}
-                  style={[
-                    styles.otpInput,
-                    {
-                      backgroundColor: surface.surface2,
-                      borderColor: surface.borderStrong,
-                      color: surface.textPrimary,
-                    },
-                  ]}
-                  accessibilityLabel={t.otpLabel}
-                />
+                <Pressable
+                  onPress={() => setOtpFocused(true)}
+                  style={styles.otpBoxesWrap}
+                >
+                  <View
+                    style={[
+                      styles.otpBoxesRow,
+                      errorMsg !== null && styles.otpBoxesError,
+                    ]}
+                    pointerEvents="none"
+                  >
+                    {Array.from({ length: 6 }).map((_, i) => {
+                      const digit = otpDigits[i];
+                      const isActive = otpFocused && otpDigits.length === i;
+                      return (
+                        <View
+                          key={i}
+                          style={[
+                            styles.otpBox,
+                            {
+                              backgroundColor: surface.surface2,
+                              borderColor:
+                                isActive
+                                  ? BRAND_COLORS.goldenYellow
+                                  : digit
+                                    ? surface.borderStrong
+                                    : surface.border,
+                              borderWidth: isActive ? 1.5 : 1,
+                            },
+                          ]}
+                        >
+                          {digit ? (
+                            <Text
+                              style={[
+                                styles.otpBoxText,
+                                { color: surface.textPrimary },
+                              ]}
+                            >
+                              {digit}
+                            </Text>
+                          ) : isActive ? (
+                            <View style={[styles.otpCursor, { backgroundColor: BRAND_COLORS.goldenYellow }]} />
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </View>
+                  {/* Hidden single input keeps SMS autofill, paste and keyboard
+                      behavior intact; the boxes above are purely visual. */}
+                  <TextInput
+                    value={otpDigits}
+                    onChangeText={handleOtpChange}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    textContentType="oneTimeCode"
+                    autoComplete="sms-otp"
+                    returnKeyType="done"
+                    onFocus={() => setOtpFocused(true)}
+                    onBlur={() => setOtpFocused(false)}
+                    style={styles.otpHiddenInput}
+                    accessibilityLabel={t.otpLabel}
+                  />
+                </Pressable>
 
                 <PrimaryButton
                   label={t.verifyOtpBtn}
@@ -447,20 +530,34 @@ const styles = StyleSheet.create({
   headerBlock: {
     gap: SPACING.sm,
   },
-  logoBadge: {
+  masterLogo: {
+    width: 210,
+    height: 78,
     alignSelf: 'flex-start',
-    backgroundColor: BRAND_COLORS.charcoalBlack,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADII.sm,
-    borderWidth: 1,
-    borderColor: BRAND_COLORS.goldenYellow,
   },
-  logoBadgeText: {
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: SPACING.xs,
+  },
+  brandName: {
     color: BRAND_COLORS.goldenYellow,
     fontSize: TYPOGRAPHY.labelMd.fontSize,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+  },
+  brandDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(248,249,250,0.5)',
+  },
+  brandTag: {
+    color: '#94A3B8',
+    fontSize: TYPOGRAPHY.captionMin.fontSize,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   title: {
     fontSize: TYPOGRAPHY.headlineLg.fontSize,
@@ -516,7 +613,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: TOUCH_TARGETS.primaryCtaHeight,
-    borderRadius: RADII.md,
+    borderRadius: RADII.lg,
     borderWidth: 1,
     paddingHorizontal: SPACING.md,
   },
@@ -547,16 +644,49 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.labelMd.fontSize,
     fontWeight: '700',
   },
-  otpInput: {
-    minHeight: TOUCH_TARGETS.primaryCtaHeight,
-    borderRadius: RADII.md,
-    borderWidth: 1,
-    paddingHorizontal: SPACING.md,
-    fontSize: TYPOGRAPHY.headlineMd.fontSize,
-    fontWeight: '700',
-    letterSpacing: 6,
-    textAlign: 'center',
+  otpBoxesWrap: {
+    position: 'relative',
+    minHeight: 58,
+    justifyContent: 'center',
   },
+  otpBoxesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.xs,
+  },
+  otpBoxesError: { opacity: 0.75 },
+  otpBox: {
+    flex: 1,
+    height: 58,
+    borderRadius: RADII.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpBoxText: {
+    fontSize: TYPOGRAPHY.headlineMd.fontSize,
+    fontWeight: '800',
+  },
+  otpCursor: {
+    width: 2,
+    height: 24,
+    borderRadius: 1,
+    opacity: 0.9,
+  },
+  otpHiddenInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 58,
+    opacity: 0,
+    fontSize: 16,
+  },
+  countryDivider: {
+    width: 1,
+    height: 22,
+    marginHorizontal: SPACING.sm,
+  },
+  phoneCheck: { marginRight: SPACING.sm },
   resendBtn: {
     minHeight: TOUCH_TARGETS.minSize,
     flexDirection: 'row',

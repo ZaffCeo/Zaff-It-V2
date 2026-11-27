@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -42,6 +42,24 @@ type SearchRow = {
   mrp_paise: number;
   selling_price_paise: number;
   available_to_sell: number;
+};
+
+/**
+ * Display-only intent hints (subset). The authoritative synonym dictionary
+ * lives server-side (public.search_synonyms) and powers actual matching;
+ * this map just explains to the user what their Hindi/Hinglish query matched.
+ */
+const INTENT_HINTS: Record<string, string> = {
+  doodh: 'Milk', dudh: 'Milk', 'दूध': 'Milk',
+  makkhan: 'Butter', 'मक्खन': 'Butter',
+  aata: 'Atta', 'आटा': 'Atta',
+  chawal: 'Rice', 'चावल': 'Rice', chaawal: 'Rice',
+  namak: 'Salt', 'नमक': 'Salt',
+  tel: 'Oil', 'तेल': 'Oil',
+  biskut: 'Biscuit', 'बिस्कुट': 'Biscuit',
+  aalu: 'Potato', aloo: 'Potato', 'आलू': 'Potato',
+  pyaaz: 'Onion', pyaz: 'Onion', 'प्याज़': 'Onion',
+  tamatar: 'Tomato', 'टमाटर': 'Tomato',
 };
 
 const SUGGESTED_PROMPTS = [
@@ -161,6 +179,16 @@ export const UniversalSearchScreen: React.FC = () => {
 
   const formatPrice = (paise: number) =>
     `₹${(paise / 100).toFixed(paise % 100 === 0 ? 0 : 2)}`;
+
+  const intentHintLabel = useMemo(() => {
+    const words = query.trim().toLowerCase().split(/\s+/);
+    for (const w of words) {
+      const canon = INTENT_HINTS[w];
+      if (canon) return `"${w}" = ${canon}`;
+    }
+    return null;
+  }, [query]);
+  const intentHint = intentHintLabel !== null && rows.length > 0;
 
   const showIdleState = query.trim().length === 0 && rows.length === 0 && !loading;
 
@@ -305,6 +333,14 @@ export const UniversalSearchScreen: React.FC = () => {
           />
         ) : (
           <>
+            {intentHint ? (
+              <View style={[styles.intentChip, { backgroundColor: 'rgba(255,199,3,0.12)', borderColor: 'rgba(255,199,3,0.35)' }]}>
+                <Ionicons name="swap-horizontal" size={13} color={BRAND_COLORS.goldenYellow} />
+                <Text style={[styles.intentChipText, { color: surface.textPrimary }]}>
+                  {intentHintLabel}
+                </Text>
+              </View>
+            ) : null}
             <Text style={[styles.resultCount, { color: surface.textSecondary }]}>
               {rows.length} result{rows.length === 1 ? '' : 's'} · sab stores me search kiya
             </Text>
@@ -431,6 +467,18 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     lineHeight: 18,
   },
+  intentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    marginBottom: SPACING.xs,
+  },
+  intentChipText: { fontSize: TYPOGRAPHY.captionMin.fontSize, fontWeight: '700' },
   resultCount: { fontSize: TYPOGRAPHY.bodySm.fontSize, marginBottom: SPACING.sm },
   resultCard: {
     flexDirection: 'row',
