@@ -291,6 +291,23 @@ const FALLBACK_PRODUCTS: CatalogueProduct[] = [
   },
 ];
 
+type SponsoredStoreAd = {
+  campaign_id: string;
+  headline: string;
+  store_id: string;
+  store_name: string;
+  prep_time_minutes: number | null;
+};
+
+type AdBanner = {
+  campaign_id: string;
+  headline: string;
+  banner_slot: number;
+  store_id: string;
+  store_name: string;
+  store_city: string;
+};
+
 type PromoSlide = import('@/components/ui/PremiumKit').BannerSlide & {
   image?: number;
   category: string;
@@ -362,6 +379,9 @@ export const CustomerHomeScreen: React.FC = () => {
   const [parchiMatches, setParchiMatches] = useState<ParchiMatch[]>([]);
   const [parchiNote, setParchiNote] = useState<string | null>(null);
   const [nearbyStores, setNearbyStores] = useState<StoreInfo[]>(FALLBACK_STORES);
+  // W4c/Zaff Ads Phase 1: admin-approved, paid-or-free sponsored placements (always labelled).
+  const [sponsoredStores, setSponsoredStores] = useState<SponsoredStoreAd[]>([]);
+  const [adBanners, setAdBanners] = useState<AdBanner[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [promoIndex, setPromoIndex] = useState(0);
   const [products, setProducts] = useState<CatalogueProduct[]>(FALLBACK_PRODUCTS);
@@ -457,6 +477,27 @@ export const CustomerHomeScreen: React.FC = () => {
         setUnreadNotificationCount(count ?? 0);
       });
   }, [setUnreadNotificationCount]);
+
+  useEffect(() => {
+    // Zaff Ads Phase 1: sponsored stores + home banners (backend-filtered: active, paid, in-date).
+    if (!isSupabaseConfigured()) return;
+    void (async () => {
+      try {
+        const [stRes, bnRes] = await Promise.all([
+          supabase.rpc('get_sponsored_stores'),
+          supabase.rpc('get_home_banner_ads'),
+        ]);
+        if (!stRes.error && stRes.data) {
+          setSponsoredStores((stRes.data as unknown) as SponsoredStoreAd[]);
+        }
+        if (!bnRes.error && bnRes.data) {
+          setAdBanners((bnRes.data as unknown) as AdBanner[]);
+        }
+      } catch {
+        // ads are optional — organic experience stays untouched
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     // Real nearby stores (Aapke Aas-Paas Ki Dukanein). Falls back to the
@@ -1564,6 +1605,41 @@ export const CustomerHomeScreen: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.rowScroll}
         >
+          {sponsoredStores.map((ad) => (
+            <Pressable
+              key={`sp-${ad.campaign_id}`}
+              onPress={() => {
+                setSelectedCategory('All');
+                setSearchQuery(ad.store_name);
+                setHomeToast(`${ad.store_name} ka catalogue neeche dikh raha hai · Sponsored`);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Sponsored: ${ad.store_name}`}
+              style={[
+                styles.storeCard,
+                {
+                  backgroundColor: 'rgba(255,199,3,0.10)',
+                  borderColor: 'rgba(255,199,3,0.55)',
+                  borderWidth: 1.5,
+                },
+              ]}
+            >
+              <View style={styles.storeCardTop}>
+                <View style={[styles.storeAvatar, { backgroundColor: BRAND_COLORS.goldenYellow }]}>
+                  <Ionicons name="megaphone" size={18} color={BRAND_COLORS.charcoalBlack} />
+                </View>
+                <View style={[styles.storeOpenChip, { backgroundColor: BRAND_COLORS.goldenYellow }]}>
+                  <Text style={[styles.storeOpenText, { color: BRAND_COLORS.charcoalBlack }]}>SPONSORED</Text>
+                </View>
+              </View>
+              <Text style={[styles.storeName, { color: surface.textPrimary }]} numberOfLines={2}>
+                {ad.headline}
+              </Text>
+              <Text style={[styles.storeMetaRow, { color: surface.textMuted }]} numberOfLines={1}>
+                {ad.store_name}
+              </Text>
+            </Pressable>
+          ))}
           {nearbyStores.map((st) => (
             <Pressable
               key={st.id}
@@ -1682,6 +1758,64 @@ export const CustomerHomeScreen: React.FC = () => {
             else setSelectedCategory(slide.category);
           }}
         />
+        {adBanners.length > 0 ? (
+          <View style={{ marginTop: SPACING.sm, gap: SPACING.xs }}>
+            {adBanners.slice(0, 3).map((b) => (
+              <Pressable
+                key={`adbn-${b.campaign_id}`}
+                onPress={() => {
+                  setSelectedCategory('All');
+                  setSearchQuery(b.store_name);
+                  setHomeToast(`${b.store_name} · Sponsored`);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Sponsored banner: ${b.headline}`}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  borderWidth: 1.5,
+                  borderColor: 'rgba(255,199,3,0.55)',
+                  backgroundColor: 'rgba(255,199,3,0.10)',
+                  borderRadius: RADII.lg,
+                  paddingHorizontal: SPACING.md,
+                  paddingVertical: SPACING.sm,
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    backgroundColor: BRAND_COLORS.goldenYellow,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Ionicons name="megaphone" size={17} color={BRAND_COLORS.charcoalBlack} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ fontSize: TYPOGRAPHY.bodyMd.fontSize, fontWeight: '900', color: surface.textPrimary }}>
+                    {b.headline}
+                  </Text>
+                  <Text numberOfLines={1} style={{ fontSize: TYPOGRAPHY.bodySm.fontSize, color: surface.textMuted }}>
+                    {b.store_name} · Slot {b.banner_slot}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    paddingHorizontal: 7,
+                    paddingVertical: 3,
+                    borderRadius: 999,
+                    backgroundColor: BRAND_COLORS.goldenYellow,
+                  }}
+                >
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: BRAND_COLORS.charcoalBlack }}>SPONSORED</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <View style={{ marginTop: SPACING.sm }}>
           <AssuranceStrip
             mode={colorScheme}

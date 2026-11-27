@@ -99,6 +99,8 @@ export const UniversalSearchScreen: React.FC = () => {
   const [query, setQuery] = useState(route.params?.initialQuery ?? '');
   const [rows, setRows] = useState<SearchRow[]>([]);
   const [sponsored, setSponsored] = useState<SponsoredRow[]>([]);
+  // Per-session viewer salt: dedups repeated impressions/clicks server-side per 10-min bucket.
+  const viewerSalt = React.useRef(`vs-${Math.random().toString(36).slice(2, 10)}`).current;
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [recents, setRecents] = useState<string[]>([]);
@@ -171,6 +173,7 @@ export const UniversalSearchScreen: React.FC = () => {
           void supabase.rpc('record_ad_event', {
             p_campaign_id: ad.campaign_id,
             p_event_type: 'impression',
+            p_viewer_key: viewerSalt,
           });
         }
       } catch {
@@ -212,6 +215,7 @@ export const UniversalSearchScreen: React.FC = () => {
     void supabase.rpc('record_ad_event', {
       p_campaign_id: ad.campaign_id,
       p_event_type: 'click',
+      p_viewer_key: viewerSalt,
     });
     rememberRecent(query);
     const payload: ProductDetailInput = {
