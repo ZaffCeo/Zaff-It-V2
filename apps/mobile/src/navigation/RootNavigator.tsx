@@ -20,6 +20,7 @@ import { CategoryDeepDiveScreen } from '@/screens/customer/CategoryDeepDiveScree
 import { NotificationCenterScreen } from '@/screens/customer/NotificationCenterScreen';
 import { RequestItScreen } from '@/screens/customer/RequestItScreen';
 import { ZaffyChatScreen } from '@/screens/customer/ZaffyChatScreen';
+import { RazorpayCheckoutScreen } from '@/screens/customer/RazorpayCheckoutScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
@@ -50,6 +51,7 @@ export type CustomerStackParamList = {
   NotificationCenter: undefined;
   RequestIt: undefined;
   ZaffyChat: { initialQuery?: string } | undefined;
+  RazorpayCheckout: { razorpayOrderId: string; amountPaise: number; currency: string; orderNumber: string; orderId: string } | undefined;
 };
 
 export type CustomerTabParamList = {
@@ -152,6 +154,7 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="NotificationCenter" component={NotificationCenterScreen} />
     <CustomerStackNav.Screen name="RequestIt" component={RequestItScreen} />
     <CustomerStackNav.Screen name="ZaffyChat" component={ZaffyChatScreen} />
+    <CustomerStackNav.Screen name="RazorpayCheckout" component={RazorpayCheckoutScreen} />
   </CustomerStackNav.Navigator>
 );
 

@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { CustomerStackParamList } from '@/navigation/RootNavigator';
 import {
   BRAND_COLORS,
   pickProductArt,
@@ -87,7 +89,9 @@ function applyLocalPromoTotals(
 
 export const CartCheckoutScreen: React.FC = () => {
   const navigation =
-    useNavigation<BottomTabNavigationProp<CustomerTabParamList>>();
+    useNavigation<
+      BottomTabNavigationProp<CustomerTabParamList> & NativeStackNavigationProp<CustomerStackParamList>
+    >();
   const language = useAppStore((s) => s.language);
   const colorScheme = useAppStore((s) => s.colorScheme);
   const zone = useAppStore((s) => s.zone);
@@ -324,12 +328,14 @@ export const CartCheckoutScreen: React.FC = () => {
         json.payment.razorpay_order_id &&
         Platform.OS === 'web'
       ) {
+        // WEB: popup flow (below). NATIVE (Android/iOS): in-app WebView checkout
+        // screen — same server-side webhook confirmation, popup result is UX-only.
         try {
           const result = await openRazorpayCheckout({
             razorpayOrderId: json.payment.razorpay_order_id,
             amountPaise: json.payment.amount_paise,
             currency: json.payment.currency,
-            orderNumber: json.order_number,
+            orderNumber: json.order_number ?? '',
             themeColor: BRAND_COLORS.goldenYellow,
           });
           if (result.outcome === 'failed') {
@@ -344,6 +350,23 @@ export const CartCheckoutScreen: React.FC = () => {
         } catch {
           setErrorMsg('Could not open the payment window. Order saved — retry from Orders.');
         }
+      }
+
+      if (
+        json.payment?.provider === 'razorpay' &&
+        json.payment.razorpay_order_id &&
+        Platform.OS !== 'web'
+      ) {
+        // Android/iOS: native WebView checkout screen performs the same
+        // post-flow (clear basket, fresh idempotency key) on completion.
+        navigation.navigate('RazorpayCheckout', {
+          razorpayOrderId: json.payment.razorpay_order_id,
+          amountPaise: json.payment.amount_paise,
+          currency: json.payment.currency,
+          orderNumber: json.order_number ?? '',
+          orderId: json.order_id,
+        });
+        return;
       }
 
       setActiveOrderId(json.order_id);

@@ -57,7 +57,7 @@ npx supabase login
 npx supabase link --project-ref <your-project-ref>
 ```
 
-Ensure your `supabase/migrations/` directory contains the 4 canonical migrations in order:
+> **Canonical migrations:** `infrastructure/database/*.sql` in filename order (see `docs/database-migrations.md`). `supabase/migrations/` is not used.
 - `001_core_schema.sql` — Extensions (`postgis`, `pgcrypto`), enums (`user_role`, `order_status`, `fulfillment_mode`, `payment_method`), `profiles`, `zones`, `stores`, `feature_flags` (including `dark_store_enabled = false`).
 - `002_catalogue_and_inventory.sql` — `categories`, `products`, `store_inventory` (with `on_hand_quantity`, `reserved_quantity`, generated `available_to_sell`), `cart_items`, and `coupons`.
 - `003_orders_payments_dispatch.sql` — `orders`, `order_items`, `payment_transactions`, `webhook_events`, `rider_shifts`, `deliveries`, `audit_logs`, plus atomic checkout RPC (`create_order_atomic`) and inventory release functions.
