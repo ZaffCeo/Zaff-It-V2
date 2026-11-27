@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -187,6 +187,15 @@ export const OrderTrackingScreen: React.FC = () => {
       edges={['top', 'left', 'right']}
     >
       <View style={[styles.header, { borderBottomColor: surface.border }]}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={styles.backBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="arrow-back" size={22} color={surface.textPrimary} />
+        </Pressable>
         <Text style={[styles.headerTitle, { color: surface.textPrimary }]}>
           {t.trackingTitle}
         </Text>
@@ -355,6 +364,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.screenPadding,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.headlineMd.fontSize,

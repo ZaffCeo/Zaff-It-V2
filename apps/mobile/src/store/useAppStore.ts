@@ -68,6 +68,8 @@ export interface AppState {
   cartItems: CartItem[];
   couponCode: string | null;
   promoCode: string | null;
+  /** bump to make Home open the Parchi list modal (cross-screen trigger) */
+  parchiRequestTick: number;
   activeOrderId: string | null;
 
   // Actions
@@ -83,6 +85,7 @@ export interface AppState {
   setActiveOrderId: (orderId: string | null) => void;
   setCouponCode: (code: string | null) => void;
   setPromoCode: (code: string | null) => void;
+  setParchiRequestTick: (tick: number) => void;
   setUnreadNotificationCount: (count: number) => void;
 
   addToCart: (item: Omit<CartItem, 'quantity'>) => { switchedStore: boolean };
@@ -181,6 +184,7 @@ export const useAppStore = create<AppState>()(
       couponCode: null,
       promoCode: null,
       activeOrderId: null,
+      parchiRequestTick: 0,
 
       setSession: (userId, phone, role) =>
         set((state) => ({
@@ -205,6 +209,8 @@ export const useAppStore = create<AppState>()(
         set({ couponCode, promoCode: couponCode }),
       setPromoCode: (promoCode) =>
         set({ promoCode, couponCode: promoCode }),
+
+      setParchiRequestTick: (tick) => set({ parchiRequestTick: tick }),
 
       addToCart: (incoming) => {
         const state = get();

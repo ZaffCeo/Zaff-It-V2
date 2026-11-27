@@ -289,6 +289,8 @@ export const CustomerHomeScreen: React.FC = () => {
   const colorScheme = useAppStore((s) => s.colorScheme);
   const zone = useAppStore((s) => s.zone);
   const setPromoCode = useAppStore((s) => s.setPromoCode);
+  const parchiRequestTick = useAppStore((s) => s.parchiRequestTick);
+  const setParchiRequestTick = useAppStore((s) => s.setParchiRequestTick);
   const cartItems = useAppStore((s) => s.cartItems);
   const addToCart = useAppStore((s) => s.addToCart);
   const replaceCartWithItem = useAppStore((s) => s.replaceCartWithItem);
@@ -432,6 +434,14 @@ export const CustomerHomeScreen: React.FC = () => {
     const id = setTimeout(() => setHomeToast(null), 3200);
     return () => clearTimeout(id);
   }, [homeToast]);
+
+  // Wallet "Upload Parchi" mission jumps here and opens the list modal.
+  useEffect(() => {
+    if (parchiRequestTick > 0) {
+      setParchiRequestTick(0);
+      setParchiOpen(true);
+    }
+  }, [parchiRequestTick, setParchiRequestTick]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
