@@ -674,9 +674,8 @@ export const CustomerHomeScreen: React.FC = () => {
   };
 
   const openZaffyWithPrompt = (presetPrompt: string) => {
-    setZaffyPrompt(presetPrompt);
-    setZaffyReply(null);
-    setZaffyOpen(true);
+    // Zaffy v14: full chat screen (history, tools, confirmations) replaces the inline modal.
+    navigation.navigate('ZaffyChat', { initialQuery: presetPrompt || undefined });
   };
 
   const handleAskZaffy = async () => {

@@ -2,7 +2,7 @@
   "name": "zaff-it-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "ZAFF-IT — Hyperlocal Quick-Commerce Ecosystem (Makrana Merchant-First Pilot -> Dark Store at 500 orders/day)",
+  "description": "ZAFF-IT \u2014 Hyperlocal Quick-Commerce Ecosystem (Makrana Merchant-First Pilot -> Dark Store at 500 orders/day)",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -16,7 +16,7 @@
     "db:push": "npx supabase db push",
     "db:reset": "npx supabase db reset",
     "functions:serve": "npx supabase functions serve",
-    "functions:deploy": "npx supabase functions deploy checkout-create-order && npx supabase functions deploy razorpay-webhook --no-verify-jwt && npx supabase functions deploy r2-signed-url && npx supabase functions deploy geo-proxy && npx supabase functions deploy zaffy-ai",
+    "functions:deploy": "npx supabase functions deploy checkout-create-order && npx supabase functions deploy razorpay-webhook --no-verify-jwt && npx supabase functions deploy cart-preview && npx supabase functions deploy order-lifecycle && npx supabase functions deploy auth-delete-account && npx supabase functions deploy r2-presign-upload && npx supabase functions deploy catalog-enrich && npx supabase functions deploy catalog-ingest && npx supabase functions deploy qa-auth-bridge && npx supabase functions deploy zaffy-ai-assistant",
     "eas:build:android:preview": "eas build --platform android --profile preview",
     "eas:build:android:prod": "eas build --platform android --profile production"
   },

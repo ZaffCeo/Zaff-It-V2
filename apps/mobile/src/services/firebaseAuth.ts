@@ -22,7 +22,7 @@ import { Platform } from 'react-native';
 // lives in Firebase rules + authorized domains), so committing it as a default
 // is standard Firebase practice. Env vars still override when provided.
 const FIREBASE_API_KEY =
-  process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? 'AIzaSyABna0QcPXTpZguZbdMTsEk7zqZiRM1GsY';
+  process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? '';
 const FIREBASE_PROJECT_ID =
   process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? 'zaff-it';
 

@@ -122,9 +122,12 @@ revoke all on public.catalog_merge_suggestions from anon, authenticated;
 grant all on public.catalog_merge_suggestions to service_role;
 
 -- 6. Hourly worker kick: pg_cron -> pg_net -> edge function -------------------
--- The token lives in the cron command; cron.job is readable by postgres-role
--- only, and the token grants access to one batch-ingest endpoint. Documented
--- in docs/ops/OPERATIONS_RUNBOOK.md.
+-- SECURITY (rotated 2026-11-27): the literal token was removed from this
+-- migration (it had been committed and exposed in git history). The cron now
+-- reads the token from the locked-down ops_catalog_ingest_token table (no RLS
+-- policies -> only service_role/postgres). Fresh databases: run
+-- 020_catalog_ingest_token_ops.sql right after this file to create the table
+-- and set the real token (kept out of git — see that file's header).
 do $$
 begin
   if not exists (select 1 from cron.job where jobname = 'zaff-catalog-ingest-kick') then
@@ -136,7 +139,7 @@ begin
         url := 'https://mglypwlmwzktxnvlomke.supabase.co/functions/v1/catalog-ingest',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
-          'x-ingest-token', 'zaff-ing-37115121b9dd58976fe5c89fa390b2b130b0c41b10962fcd'
+          'x-ingest-token', (select token_text from public.ops_catalog_ingest_token where id = 1)
         ),
         body := jsonb_build_object('limit', 5)
       );
