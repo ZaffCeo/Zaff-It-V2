@@ -25,6 +25,7 @@ import {
 } from '@zaff-it/shared/tokens';
 import { MerchantInsightsCard } from '@/screens/merchant/MerchantInsightsCard';
 import { MerchantKhataCard } from '@/screens/merchant/MerchantKhataCard';
+import { MerchantSettlementCard } from '@/screens/merchant/MerchantSettlementCard';
 
 export type ScreenLoadState = 'ready' | 'loading' | 'empty' | 'error';
 
@@ -324,6 +325,7 @@ export const MerchantDashboardScreen: React.FC<MerchantDashboardScreenProps> = (
 
         {/* Aaj ka Khata (live settlement + order summary) */}
         <MerchantKhataCard />
+        <MerchantSettlementCard />
 
         {/* Aaj ka Intelligence (live RPC + demo fallback) */}
         <MerchantInsightsCard />
