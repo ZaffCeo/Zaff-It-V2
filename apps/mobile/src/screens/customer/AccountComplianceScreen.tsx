@@ -279,6 +279,21 @@ export const AccountComplianceScreen: React.FC = () => {
           </Text>
 
           <Pressable
+            onPress={() => navigation.navigate('Pro')}
+            accessibilityRole="button"
+            style={[styles.legalRow, { borderColor: BRAND_COLORS.goldenYellow }]}
+          >
+            <Text style={[styles.legalRowText, { color: BRAND_COLORS.goldenYellow, fontWeight: '900' }]}>
+              Zaff Pro — Free delivery + ₹0 handling
+            </Text>
+            <Ionicons
+              name="shield-checkmark"
+              size={18}
+              color={BRAND_COLORS.goldenYellow}
+            />
+          </Pressable>
+
+          <Pressable
             onPress={() => navigation.navigate('Invite')}
             accessibilityRole="button"
             style={[styles.legalRow, { borderColor: BRAND_COLORS.goldenYellow }]}

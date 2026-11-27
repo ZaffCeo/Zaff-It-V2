@@ -139,6 +139,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
           .eq('id', payment.order_id)
           .in('status', ['created', 'payment_pending']);
       }
+    } else {
+      // W4b: Pro membership purchase — activate on verified captured payment.
+      const { data: proRow } = await adminClient
+        .from('pro_memberships')
+        .select('id, user_id, plan, status, amount_paise')
+        .eq('payment_ref', entity.order_id)
+        .maybeSingle();
+
+      if (proRow) {
+        if (entity.amount !== proRow.amount_paise || entity.currency !== 'INR') {
+          return jsonResponse(400, {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Captured payment amount or currency mismatch for Pro membership',
+              request_id: requestId,
+            },
+          });
+        }
+        if (proRow.status === 'pending') {
+          const { error: actErr } = await adminClient.rpc('activate_pro_membership', {
+            p_membership_id: proRow.id,
+            p_rzp_order_id: entity.order_id,
+            p_rzp_payment_id: entity.id,
+            p_paid_paise: entity.amount,
+          });
+          if (actErr) {
+            return jsonResponse(500, {
+              error: {
+                code: 'INTERNAL_ERROR',
+                message: `Pro activation failed: ${actErr.message}`,
+                request_id: requestId,
+              },
+            });
+          }
+        }
+      }
     }
   } else if (eventBody.event === 'payment.failed' && eventBody.payload?.payment?.entity) {
     const entity = eventBody.payload.payment.entity;
