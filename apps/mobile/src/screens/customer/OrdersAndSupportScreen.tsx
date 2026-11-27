@@ -52,6 +52,7 @@ interface OrderRecord {
   payment_method: 'razorpay' | 'cod';
   subtotal_paise: number;
   delivery_fee_paise: number;
+  handling_fee_paise: number;
   discount_paise: number;
   tax_paise: number;
   total_paise: number;
@@ -68,6 +69,7 @@ const FALLBACK_ORDERS: OrderRecord[] = [
     payment_method: 'razorpay',
     subtotal_paise: 48400,
     delivery_fee_paise: 0,
+    handling_fee_paise: 0,
     discount_paise: 2500,
     tax_paise: 0,
     total_paise: 45900,
@@ -99,6 +101,7 @@ const FALLBACK_ORDERS: OrderRecord[] = [
     payment_method: 'cod',
     subtotal_paise: 14500,
     delivery_fee_paise: 1500,
+    handling_fee_paise: 500,
     discount_paise: 0,
     tax_paise: 0,
     total_paise: 16000,
@@ -224,6 +227,7 @@ export const OrdersAndSupportScreen: React.FC = () => {
           payment_method,
           subtotal_paise,
           delivery_fee_paise,
+          handling_fee_paise,
           discount_paise,
           tax_paise,
           total_paise,
@@ -257,6 +261,7 @@ export const OrdersAndSupportScreen: React.FC = () => {
             payment_method: row.payment_method as 'razorpay' | 'cod',
             subtotal_paise: Math.trunc(row.subtotal_paise ?? 0),
             delivery_fee_paise: Math.trunc(row.delivery_fee_paise ?? 0),
+            handling_fee_paise: Math.trunc(row.handling_fee_paise ?? 0),
             discount_paise: Math.trunc(row.discount_paise ?? 0),
             tax_paise: Math.trunc(row.tax_paise ?? 0),
             total_paise: Math.trunc(row.total_paise ?? 0),
@@ -638,6 +643,16 @@ export const OrdersAndSupportScreen: React.FC = () => {
                       : formatPaise(selectedOrder.delivery_fee_paise)}
                   </Text>
                 </View>
+                {selectedOrder.handling_fee_paise > 0 ? (
+                  <View style={styles.invoiceRow}>
+                    <Text style={[styles.invoiceLabel, { color: surface.textSecondary }]}>
+                      Handling Fee
+                    </Text>
+                    <Text style={[styles.invoiceVal, { color: surface.textPrimary }]}>
+                      {formatPaise(selectedOrder.handling_fee_paise)}
+                    </Text>
+                  </View>
+                ) : null}
                 {selectedOrder.discount_paise > 0 ? (
                   <View style={styles.invoiceRow}>
                     <Text style={[styles.invoiceLabel, { color: BRAND_COLORS.electricGreen }]}>

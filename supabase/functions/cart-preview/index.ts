@@ -173,7 +173,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: zone, error: zoneErr } = await adminClient
     .from('service_zones')
     .select(
-      'id, code, name, city, center_lat, center_lng, radius_meters, geojson_polygon, base_delivery_fee_paise, free_delivery_threshold_paise, is_active',
+      'id, code, name, city, center_lat, center_lng, radius_meters, geojson_polygon, base_delivery_fee_paise, free_delivery_threshold_paise, launch_free_delivery, is_active',
     )
     .eq('id', store.service_zone_id)
     .maybeSingle();
@@ -294,9 +294,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     };
   });
 
-  // 4. Compute delivery fee
-  const deliveryFeePaise =
-    subtotalPaise >= zone.free_delivery_threshold_paise ? 0 : zone.base_delivery_fee_paise;
+  // 4. Compute delivery fee — doc §6 distance slabs (mirror of create_checkout_order RPC)
+  // 0-3 km ₹25 · 3-6 km ₹30 · 6-10 km ₹50; free at >= ₹199 subtotal or launch free-delivery month.
+  const deliveryFeePaise = zone.launch_free_delivery
+    ? 0
+    : subtotalPaise >= zone.free_delivery_threshold_paise
+      ? 0
+      : distanceMeters <= 3000
+        ? 2500
+        : distanceMeters <= 6000
+          ? 3000
+          : 5000;
+
+  // Handling fee — doc §6: ₹5 (cart < ₹199) · ₹10 (cart >= ₹199)
+  const handlingFeePaise = subtotalPaise < 19900 ? 500 : 1000;
 
   // 5. Validate optional promo_code against promotions table
   let discountPaise = 0;
@@ -340,7 +351,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  const totalPaise = Math.max(0, subtotalPaise + deliveryFeePaise - discountPaise);
+  const totalPaise = Math.max(0, subtotalPaise + deliveryFeePaise + handlingFeePaise - discountPaise);
 
   return jsonResponse(200, {
     store_id: store.id,
@@ -350,6 +361,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       code: zone.code,
       name: zone.name,
       free_delivery_threshold_paise: zone.free_delivery_threshold_paise,
+      launch_free_delivery: zone.launch_free_delivery,
     },
     items: previewItems,
     all_items_available: allItemsAvailable,
@@ -357,9 +369,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     min_order_paise: store.min_order_paise,
     subtotal_paise: subtotalPaise,
     delivery_fee_paise: deliveryFeePaise,
+    handling_fee_paise: handlingFeePaise,
     discount_paise: discountPaise,
     tax_paise: taxPaise,
     total_paise: totalPaise,
+    grand_total_paise: totalPaise,
+    delivery_distance_meters: Math.round(distanceMeters),
     promo_code: promoCode,
     coupon_applied: couponApplied,
     ...(promoError ? { promo_error: promoError } : {}),

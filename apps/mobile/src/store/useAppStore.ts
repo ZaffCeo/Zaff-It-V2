@@ -101,8 +101,8 @@ const DEFAULT_MAKRANA_ZONE: MakranaZoneInfo = {
   city: 'Makrana',
   serviceable: true,
   minOrderPaise: 9900,
-  baseDeliveryFeePaise: 1500,
-  freeDeliveryThresholdPaise: 29900,
+  baseDeliveryFeePaise: 2500,
+  freeDeliveryThresholdPaise: 19900,
   formattedAddress: 'Station Road, Makrana, Rajasthan 341505',
 };
 
@@ -133,7 +133,9 @@ export function computeLocalCartTotalsPaise(
     subtotalPaise >= Math.trunc(zone.freeDeliveryThresholdPaise)
       ? 0
       : Math.trunc(zone.baseDeliveryFeePaise);
-  const handlingFeePaise = 200; // ₹2.00 integer paise
+  // Handling fee — doc §6: ₹5 (cart < ₹199) · ₹10 (cart >= ₹199). Offline fallback estimate;
+  // server cart-preview / create_checkout_order are authoritative.
+  const handlingFeePaise = subtotalPaise < 19900 ? 500 : 1000;
   const discountPaise = 0; // Server-authoritative promos applied via cart-preview
   const grandTotalPaise = Math.max(
     0,
