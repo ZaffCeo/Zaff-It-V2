@@ -159,7 +159,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 2. Fetch store and its service_zone
   const { data: store, error: storeErr } = await adminClient
     .from('stores')
-    .select('id, name, service_zone_id, is_active, is_open, min_order_paise')
+    .select('id, name, service_zone_id, is_active, is_open, min_order_paise, fulfillment_type')
     .eq('id', payload.store_id)
     .maybeSingle();
 
@@ -173,13 +173,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: zone, error: zoneErr } = await adminClient
     .from('service_zones')
     .select(
-      'id, code, name, city, center_lat, center_lng, radius_meters, geojson_polygon, base_delivery_fee_paise, free_delivery_threshold_paise, launch_free_delivery, is_active',
+      'id, code, name, city, center_lat, center_lng, radius_meters, geojson_polygon, base_delivery_fee_paise, free_delivery_threshold_paise, launch_free_delivery, service_open_time, service_close_time, night_close_time, is_active',
     )
     .eq('id', store.service_zone_id)
     .maybeSingle();
 
   if (zoneErr || !zone || !zone.is_active) {
     return jsonError(422, 'OUT_OF_SERVICE_ZONE', 'Service zone is inactive', requestId);
+  }
+
+  // Service hours (doc): 06:00-21:00 IST; Zone-B night extension till night_close_time
+  // applies only to dark_store (kwick) fulfillment. Mirror of orders_service_hours_guard.
+  const toMinutes = (t: string | null): number | null => {
+    if (!t) return null;
+    const [h, m] = t.split(':');
+    return Number(h) * 60 + Number(m);
+  };
+  const istNow = new Date(Date.now() + 330 * 60 * 1000); // UTC+5:30
+  const nowMin = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+  const openMin = toMinutes(zone.service_open_time) ?? 6 * 60;
+  const closeMin = toMinutes(zone.service_close_time) ?? 21 * 60;
+  const nightMin = toMinutes(zone.night_close_time ?? null);
+  const withinHours =
+    (nowMin >= openMin && nowMin < closeMin) ||
+    (nightMin !== null &&
+      store.fulfillment_type === 'dark_store' &&
+      (nowMin >= openMin || nowMin < nightMin));
+  if (!withinHours) {
+    return jsonError(422, 'STORE_CLOSED', 'Store is currently outside service hours (IST ' + zone.service_open_time + ' to ' + zone.service_close_time + ')', requestId);
   }
 
   const inPolygon =
@@ -362,6 +383,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       name: zone.name,
       free_delivery_threshold_paise: zone.free_delivery_threshold_paise,
       launch_free_delivery: zone.launch_free_delivery,
+      service_open_time: zone.service_open_time,
+      service_close_time: zone.service_close_time,
+      night_close_time: zone.night_close_time,
     },
     items: previewItems,
     all_items_available: allItemsAvailable,

@@ -12,12 +12,24 @@
 #    003_atomic_rpcs.sql
 #    004_seed_makrana.sql
 #    005_security_hardening.sql
-#    ... through 020_catalog_ingest_token_ops.sql
+#    ... through 024_w5_service_hours_and_escalation.sql
 # 2. Seed ops token (kept out of git):
 #    select public.ops_rotate_catalog_kick_token('<new-token>');
 #    and mirror it into edge-function secret CATALOG_INGEST_TOKEN.
 # 3. Edge-function secrets (server-side only): see docs/zaffy-platform.md §8.
 ```
+
+## Recent migrations (W3/W5, applied live 2026-11-26/27)
+
+| File | What it ships | Verified |
+|---|---|---|
+| `022_w3_rating_tip.sql` | `rider_ratings` / `rider_tips` / `store_ratings` + `submit_delivery_feedback` RPC (idempotent, +20 coins, tip ₹10-2000 → rider weekly settlement) | E2E on real delivered order; replay guard + not-found guard proven |
+| `023_w5_delivery_pricing.sql` | `orders.handling_fee_paise`, `service_zones.launch_free_delivery`, rebuilt `create_checkout_order`: distance slabs ₹25/₹30/₹50 (>10 km rejected), free ≥ ₹199 or launch-month flag, handling ₹5/₹10 | 3 live orders: launch-free, ₹25 slab @ 2006 m, threshold + ₹10 handling |
+| `024_w5_service_hours_and_escalation.sql` | Zone hours 06:00-21:00 IST (`MKN-CENTRAL` night till 01:00, dark_store/kwick only — `orders_service_hours_guard` BEFORE INSERT trigger), escalation ladder on `delivery_tasks` (+₹5 & +2 km at 2 min, customer choice at 5 min, wait re-arm after 10 min), `resolve_delivery_escalation` RPC, pg_cron `zaff-escalate-delivery-tasks` every minute | Sweep levels 1→2 verified live; guards: no-pending / wrong-user / invalid-choice; hours reject + pass proven on BORAWAR zone |
+
+Note: free-delivery threshold is evaluated on subtotal. When the wallet wave (W6)
+lands, the doc's "payable after wallet discount" rule must change the RPC/preview
+to subtract wallet discounts from the threshold basis.
 
 ## Conventions
 

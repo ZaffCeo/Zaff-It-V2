@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +19,7 @@ import {
 import { formatPaise, useAppStore, type OrderStatus } from '@/store/useAppStore';
 import { getTranslation } from '@/i18n/translations';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
+import { SUPABASE_FUNCTIONS_URL } from '@/services/supabase';
 import {
   EmptyState,
   ErrorRetryBanner,
@@ -58,6 +60,13 @@ export const OrderTrackingScreen: React.FC = () => {
 
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [loading, setLoading] = useState(false);
+  const [escalation, setEscalation] = useState<{
+    required: boolean;
+    choice: string | null;
+    level: number;
+  } | null>(null);
+  const [escalationBusy, setEscalationBusy] = useState(false);
+  const [escalationNotice, setEscalationNotice] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const statusLabels: Record<OrderStatus, string> = {
@@ -132,6 +141,28 @@ export const OrderTrackingScreen: React.FC = () => {
           rider_name: null,
         });
       }
+
+      // W5 escalation ladder state (pg_cron sweeps delivery_tasks every minute)
+      try {
+        const { data: task } = await supabase
+          .from('delivery_tasks')
+          .select('escalation_level, customer_choice_required, customer_choice, status')
+          .eq('order_id', activeOrderId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        setEscalation(
+          task && task.status === 'unassigned'
+            ? {
+                required: task.customer_choice_required === true,
+                choice: (task.customer_choice as string | null) ?? null,
+                level: Math.trunc(Number(task.escalation_level ?? 0)),
+              }
+            : null,
+        );
+      } catch {
+        setEscalation(null);
+      }
     } catch {
       setErrorMsg(t.errorGeneric);
     } finally {
@@ -142,6 +173,91 @@ export const OrderTrackingScreen: React.FC = () => {
   useEffect(() => {
     fetchOrder();
   }, [fetchOrder]);
+
+  // 30s poll: escalation choice_required flips server-side via pg_cron sweep
+  useEffect(() => {
+    if (activeOrderId === null || !isSupabaseConfigured()) return;
+    const id = setInterval(() => {
+      fetchOrder();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [activeOrderId, fetchOrder]);
+
+  // W5: customer escalation choice — wait / shift-SameDay via RPC, free-cancel
+  // through the existing order-lifecycle cancel path (release stock + refund).
+  const handleEscalationChoice = useCallback(
+    async (choice: 'wait' | 'sameday') => {
+      if (activeOrderId === null || escalationBusy) return;
+      setEscalationBusy(true);
+      setEscalationNotice(null);
+      try {
+        const { data, error } = await supabase.rpc('resolve_delivery_escalation', {
+          p_order_id: activeOrderId,
+          p_choice: choice,
+        });
+        if (error) {
+          setEscalationNotice(error.message);
+        } else {
+          const note = (data as { note?: string } | null)?.note ?? null;
+          setEscalationNotice(
+            note ?? (choice === 'wait' ? 'Rider ka intezaar — 10 min aur' : 'SameDay shift request recorded'),
+          );
+        }
+      } catch {
+        setEscalationNotice(t.errorGeneric);
+      } finally {
+        setEscalationBusy(false);
+        fetchOrder();
+      }
+    },
+    [activeOrderId, escalationBusy, fetchOrder, t.errorGeneric],
+  );
+
+  const handleEscalationFreeCancel = useCallback(() => {
+    if (activeOrderId === null || order === null || escalationBusy) return;
+    Alert.alert(
+      'Free cancel',
+      'Rider assign nahi hua. Order cancel hoga — poora paisa wallet/refund mein wapas.',
+      [
+        { text: 'Nahi', style: 'cancel' },
+        {
+          text: 'Cancel karo',
+          style: 'destructive',
+          onPress: async () => {
+            setEscalationBusy(true);
+            setEscalationNotice(null);
+            try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const token = sessionData.session?.access_token ?? '';
+              const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/order-lifecycle`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  order_id: activeOrderId,
+                  action: 'cancel',
+                  reason: 'escalation_no_rider_free_cancel',
+                }),
+              });
+              const json = (await res.json()) as { error?: { message?: string } };
+              if (!res.ok) {
+                setEscalationNotice(json.error?.message ?? 'Cancel failed');
+              } else {
+                setEscalationNotice('Order cancel ho gaya — paisa refund process mein.');
+              }
+            } catch {
+              setEscalationNotice(t.errorGeneric);
+            } finally {
+              setEscalationBusy(false);
+              fetchOrder();
+            }
+          },
+        },
+      ],
+    );
+  }, [activeOrderId, order, escalationBusy, fetchOrder, t.errorGeneric]);
 
   // Live Supabase Realtime subscription for order status state machine
   useEffect(() => {
@@ -280,6 +396,101 @@ export const OrderTrackingScreen: React.FC = () => {
               </Text>
             ) : null}
           </View>
+
+          {/* W5: Rider escalation ladder — customer choice when no rider accepts */}
+          {order.status !== 'delivered' &&
+          order.status !== 'cancelled' &&
+          escalation !== null &&
+          escalation.required ? (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: surface.surface1, borderColor: BRAND_COLORS.goldenYellow },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: BRAND_COLORS.goldenYellow, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="bicycle" size={18} color={BRAND_COLORS.charcoalBlack} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: TYPOGRAPHY.bodyMd.fontSize, fontWeight: '900', color: surface.textPrimary }}>
+                    Rider nahi mil raha
+                  </Text>
+                  <Text style={{ fontSize: TYPOGRAPHY.bodySm.fontSize, color: surface.textMuted, marginTop: 1 }}>
+                    Aap choose karo — hum wahi karenge
+                  </Text>
+                </View>
+              </View>
+
+              {escalationNotice !== null ? (
+                <Text style={{ fontSize: TYPOGRAPHY.bodySm.fontSize, color: surface.textSecondary, marginTop: 10 }}>
+                  {escalationNotice}
+                </Text>
+              ) : null}
+
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <Pressable
+                  onPress={() => handleEscalationChoice('wait')}
+                  disabled={escalationBusy}
+                  style={{
+                    flex: 1,
+                    minWidth: 100,
+                    paddingVertical: 10,
+                    borderRadius: RADII.md,
+                    backgroundColor: BRAND_COLORS.charcoalBlack,
+                    alignItems: 'center',
+                    opacity: escalationBusy ? 0.6 : 1,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Wait 10 more minutes for a rider"
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: TYPOGRAPHY.bodySm.fontSize }}>
+                    10 min wait
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleEscalationChoice('sameday')}
+                  disabled={escalationBusy}
+                  style={{
+                    flex: 1,
+                    minWidth: 100,
+                    paddingVertical: 10,
+                    borderRadius: RADII.md,
+                    backgroundColor: surface.surface2,
+                    alignItems: 'center',
+                    opacity: escalationBusy ? 0.6 : 1,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Request SameDay shift"
+                >
+                  <Text style={{ color: surface.textPrimary, fontWeight: '800', fontSize: TYPOGRAPHY.bodySm.fontSize }}>
+                    SameDay shift
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleEscalationFreeCancel}
+                  disabled={escalationBusy}
+                  style={{
+                    flex: 1,
+                    minWidth: 100,
+                    paddingVertical: 10,
+                    borderRadius: RADII.md,
+                    backgroundColor: 'transparent',
+                    borderWidth: 1,
+                    borderColor: surface.border,
+                    alignItems: 'center',
+                    opacity: escalationBusy ? 0.6 : 1,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Free cancel order with full refund"
+                >
+                  <Text style={{ color: surface.textSecondary, fontWeight: '800', fontSize: TYPOGRAPHY.bodySm.fontSize }}>
+                    Free cancel
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
 
           {/* W3: Rate & Tip (delivered orders, Stitch rating_rider_tip design) */}
           {order.status === 'delivered' ? (
