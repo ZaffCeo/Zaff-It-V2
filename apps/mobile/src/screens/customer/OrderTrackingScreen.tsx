@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { CustomerStackParamList } from '@/navigation/RootNavigator';
 import {
   BRAND_COLORS,
   ORDER_STATUS_TOKENS,
@@ -45,7 +47,9 @@ const PIPELINE_STEPS: OrderStatus[] = [
 
 export const OrderTrackingScreen: React.FC = () => {
   const navigation =
-    useNavigation<BottomTabNavigationProp<CustomerTabParamList>>();
+    useNavigation<
+      BottomTabNavigationProp<CustomerTabParamList> & NativeStackNavigationProp<CustomerStackParamList>
+    >();
   const language = useAppStore((s) => s.language);
   const colorScheme = useAppStore((s) => s.colorScheme);
   const activeOrderId = useAppStore((s) => s.activeOrderId);
@@ -276,6 +280,31 @@ export const OrderTrackingScreen: React.FC = () => {
               </Text>
             ) : null}
           </View>
+
+          {/* W3: Rate & Tip (delivered orders, Stitch rating_rider_tip design) */}
+          {order.status === 'delivered' ? (
+            <Pressable
+              onPress={() => navigation.navigate('RatingTip', { orderId: order.id })}
+              style={[styles.card, { backgroundColor: surface.surface1, borderColor: surface.border }]}
+              accessibilityRole="button"
+              accessibilityLabel="Rate delivery and add tip"
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: BRAND_COLORS.goldenYellow, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="star" size={18} color={BRAND_COLORS.charcoalBlack} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: TYPOGRAPHY.bodyMd.fontSize, fontWeight: '900', color: surface.textPrimary }}>
+                    Rate Your Delivery Hero
+                  </Text>
+                  <Text style={{ fontSize: TYPOGRAPHY.bodySm.fontSize, color: surface.textMuted, marginTop: 1 }}>
+                    Stars + tip do — +20 Z-Coins milenge
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={surface.textMuted} />
+              </View>
+            </Pressable>
+          ) : null}
 
           {/* State Machine Timeline */}
           <View

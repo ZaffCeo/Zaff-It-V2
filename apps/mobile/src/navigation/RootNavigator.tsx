@@ -21,6 +21,7 @@ import { NotificationCenterScreen } from '@/screens/customer/NotificationCenterS
 import { RequestItScreen } from '@/screens/customer/RequestItScreen';
 import { ZaffyChatScreen } from '@/screens/customer/ZaffyChatScreen';
 import { RazorpayCheckoutScreen } from '@/screens/customer/RazorpayCheckoutScreen';
+import { RatingTipScreen } from '@/screens/customer/RatingTipScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
@@ -52,6 +53,7 @@ export type CustomerStackParamList = {
   RequestIt: undefined;
   ZaffyChat: { initialQuery?: string } | undefined;
   RazorpayCheckout: { razorpayOrderId: string; amountPaise: number; currency: string; orderNumber: string; orderId: string } | undefined;
+  RatingTip: { orderId: string } | undefined;
 };
 
 export type CustomerTabParamList = {
@@ -155,6 +157,7 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="RequestIt" component={RequestItScreen} />
     <CustomerStackNav.Screen name="ZaffyChat" component={ZaffyChatScreen} />
     <CustomerStackNav.Screen name="RazorpayCheckout" component={RazorpayCheckoutScreen} />
+    <CustomerStackNav.Screen name="RatingTip" component={RatingTipScreen} />
   </CustomerStackNav.Navigator>
 );
 
