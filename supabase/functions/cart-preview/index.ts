@@ -159,7 +159,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 2. Fetch store and its service_zone
   const { data: store, error: storeErr } = await adminClient
     .from('stores')
-    .select('id, name, service_zone_id, is_active, is_open, min_order_paise')
+    .select('id, name, service_zone_id, is_active, is_open, min_order_paise, fulfillment_type')
     .eq('id', payload.store_id)
     .maybeSingle();
 
@@ -173,13 +173,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: zone, error: zoneErr } = await adminClient
     .from('service_zones')
     .select(
-      'id, code, name, city, center_lat, center_lng, radius_meters, geojson_polygon, base_delivery_fee_paise, free_delivery_threshold_paise, is_active',
+      'id, code, name, city, center_lat, center_lng, radius_meters, geojson_polygon, base_delivery_fee_paise, free_delivery_threshold_paise, launch_free_delivery, service_open_time, service_close_time, night_close_time, is_active',
     )
     .eq('id', store.service_zone_id)
     .maybeSingle();
 
   if (zoneErr || !zone || !zone.is_active) {
     return jsonError(422, 'OUT_OF_SERVICE_ZONE', 'Service zone is inactive', requestId);
+  }
+
+  // Service hours (doc): 06:00-21:00 IST; Zone-B night extension till night_close_time
+  // applies only to dark_store (kwick) fulfillment. Mirror of orders_service_hours_guard.
+  const toMinutes = (t: string | null): number | null => {
+    if (!t) return null;
+    const [h, m] = t.split(':');
+    return Number(h) * 60 + Number(m);
+  };
+  const istNow = new Date(Date.now() + 330 * 60 * 1000); // UTC+5:30
+  const nowMin = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+  const openMin = toMinutes(zone.service_open_time) ?? 6 * 60;
+  const closeMin = toMinutes(zone.service_close_time) ?? 21 * 60;
+  const nightMin = toMinutes(zone.night_close_time ?? null);
+  const withinHours =
+    (nowMin >= openMin && nowMin < closeMin) ||
+    (nightMin !== null &&
+      store.fulfillment_type === 'dark_store' &&
+      (nowMin >= openMin || nowMin < nightMin));
+  if (!withinHours) {
+    return jsonError(422, 'STORE_CLOSED', 'Store is currently outside service hours (IST ' + zone.service_open_time + ' to ' + zone.service_close_time + ')', requestId);
   }
 
   const inPolygon =
@@ -294,9 +315,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     };
   });
 
-  // 4. Compute delivery fee
-  const deliveryFeePaise =
-    subtotalPaise >= zone.free_delivery_threshold_paise ? 0 : zone.base_delivery_fee_paise;
+  // 4. Compute delivery fee — doc §6 distance slabs (mirror of create_checkout_order RPC)
+  // 0-3 km ₹25 · 3-6 km ₹30 · 6-10 km ₹50; free at >= ₹199 subtotal or launch free-delivery month.
+  const deliveryFeePaise = zone.launch_free_delivery
+    ? 0
+    : subtotalPaise >= zone.free_delivery_threshold_paise
+      ? 0
+      : distanceMeters <= 3000
+        ? 2500
+        : distanceMeters <= 6000
+          ? 3000
+          : 5000;
+
+  // Handling fee — doc §6: ₹5 (cart < ₹199) · ₹10 (cart >= ₹199)
+  const handlingFeePaise = subtotalPaise < 19900 ? 500 : 1000;
 
   // 5. Validate optional promo_code against promotions table
   let discountPaise = 0;
@@ -340,7 +372,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  const totalPaise = Math.max(0, subtotalPaise + deliveryFeePaise - discountPaise);
+  const totalPaise = Math.max(0, subtotalPaise + deliveryFeePaise + handlingFeePaise - discountPaise);
+
+  // W6 wallet preview (10 coins = Rs1): usable <= 10% of product value, fees never wallet-paid.
+  let walletBalanceCoins = 0;
+  try {
+    const { data: bal } = await adminClient.rpc('wallet_spendable', { p_user_id: userId });
+    walletBalanceCoins = Math.trunc(Number(bal ?? 0));
+  } catch {
+    walletBalanceCoins = 0;
+  }
+  const walletUsableCoins = Math.min(walletBalanceCoins, Math.floor(subtotalPaise / 100));
 
   return jsonResponse(200, {
     store_id: store.id,
@@ -350,6 +392,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       code: zone.code,
       name: zone.name,
       free_delivery_threshold_paise: zone.free_delivery_threshold_paise,
+      launch_free_delivery: zone.launch_free_delivery,
+      service_open_time: zone.service_open_time,
+      service_close_time: zone.service_close_time,
+      night_close_time: zone.night_close_time,
     },
     items: previewItems,
     all_items_available: allItemsAvailable,
@@ -357,9 +403,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     min_order_paise: store.min_order_paise,
     subtotal_paise: subtotalPaise,
     delivery_fee_paise: deliveryFeePaise,
+    handling_fee_paise: handlingFeePaise,
     discount_paise: discountPaise,
     tax_paise: taxPaise,
     total_paise: totalPaise,
+    grand_total_paise: totalPaise,
+    delivery_distance_meters: Math.round(distanceMeters),
+    wallet: {
+      balance_coins: walletBalanceCoins,
+      usable_coins: walletUsableCoins,
+      usable_paise: walletUsableCoins * 10,
+    },
     promo_code: promoCode,
     coupon_applied: couponApplied,
     ...(promoError ? { promo_error: promoError } : {}),

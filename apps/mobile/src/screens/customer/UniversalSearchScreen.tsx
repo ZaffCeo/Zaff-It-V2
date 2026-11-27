@@ -44,6 +44,19 @@ type SearchRow = {
   available_to_sell: number;
 };
 
+type SponsoredRow = {
+  campaign_id: string;
+  headline: string;
+  store_id: string;
+  store_name: string;
+  product_id: string;
+  product_name: string;
+  unit_label: string;
+  mrp_paise: number;
+  selling_price_paise: number;
+  available_to_sell: number;
+};
+
 /**
  * Display-only intent hints (subset). The authoritative synonym dictionary
  * lives server-side (public.search_synonyms) and powers actual matching;
@@ -85,6 +98,9 @@ export const UniversalSearchScreen: React.FC = () => {
 
   const [query, setQuery] = useState(route.params?.initialQuery ?? '');
   const [rows, setRows] = useState<SearchRow[]>([]);
+  const [sponsored, setSponsored] = useState<SponsoredRow[]>([]);
+  // Per-session viewer salt: dedups repeated impressions/clicks server-side per 10-min bucket.
+  const viewerSalt = React.useRef(`vs-${Math.random().toString(36).slice(2, 10)}`).current;
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [recents, setRecents] = useState<string[]>([]);
@@ -145,6 +161,24 @@ export const UniversalSearchScreen: React.FC = () => {
           available_to_sell: Math.trunc(Number(row.available_to_sell ?? 0)),
         })),
       );
+
+      // W4c Zaff Ads: admin-approved sponsored placements (always labelled).
+      try {
+        const { data: adRows } = await supabase.rpc('get_sponsored_search', {
+          p_query: q.trim(),
+        });
+        const adList = ((adRows ?? []) as unknown) as SponsoredRow[];
+        setSponsored(Array.isArray(adList) ? adList : []);
+        for (const ad of adList) {
+          void supabase.rpc('record_ad_event', {
+            p_campaign_id: ad.campaign_id,
+            p_event_type: 'impression',
+            p_viewer_key: viewerSalt,
+          });
+        }
+      } catch {
+        setSponsored([]);
+      }
     } catch {
       setErrorMsg('Kuch gadbad ho gayi. Dobara koshish karein.');
       setRows([]);
@@ -173,6 +207,29 @@ export const UniversalSearchScreen: React.FC = () => {
       selling_price_paise: row.selling_price_paise,
       available_to_sell: row.available_to_sell,
       image_url: row.image_url,
+    };
+    navigation.navigate('ProductDetail', { product: payload });
+  };
+
+  const openSponsored = (ad: SponsoredRow) => {
+    void supabase.rpc('record_ad_event', {
+      p_campaign_id: ad.campaign_id,
+      p_event_type: 'click',
+      p_viewer_key: viewerSalt,
+    });
+    rememberRecent(query);
+    const payload: ProductDetailInput = {
+      product_id: ad.product_id,
+      store_id: ad.store_id,
+      store_name: ad.store_name,
+      name: ad.product_name,
+      brand: null,
+      description: null,
+      unit_label: ad.unit_label,
+      mrp_paise: ad.mrp_paise,
+      selling_price_paise: ad.selling_price_paise,
+      available_to_sell: ad.available_to_sell,
+      image_url: null,
     };
     navigation.navigate('ProductDetail', { product: payload });
   };
@@ -341,6 +398,64 @@ export const UniversalSearchScreen: React.FC = () => {
                 </Text>
               </View>
             ) : null}
+            {sponsored.length > 0
+              ? sponsored.map((ad) => (
+                  <Pressable
+                    key={`ad-${ad.campaign_id}`}
+                    onPress={() => openSponsored(ad)}
+                    style={[
+                      styles.resultCard,
+                      {
+                        backgroundColor: 'rgba(255,199,3,0.10)',
+                        borderColor: 'rgba(255,199,3,0.45)',
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Sponsored: ${ad.headline}`}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View
+                        style={{
+                          width: 38,
+                          height: 38,
+                          borderRadius: 12,
+                          backgroundColor: BRAND_COLORS.goldenYellow,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons name="megaphone" size={18} color={BRAND_COLORS.charcoalBlack} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text numberOfLines={1} style={{ fontSize: TYPOGRAPHY.bodyMd.fontSize, fontWeight: '900', color: surface.textPrimary }}>
+                          {ad.headline}
+                        </Text>
+                        <Text numberOfLines={1} style={{ fontSize: TYPOGRAPHY.bodySm.fontSize, color: surface.textMuted, marginTop: 1 }}>
+                          {ad.product_name} · {ad.store_name}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: TYPOGRAPHY.bodySm.fontSize, fontWeight: '900', color: surface.textPrimary }}>
+                          {formatPrice(ad.selling_price_paise)}
+                        </Text>
+                        <View
+                          style={{
+                            marginTop: 3,
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 999,
+                            backgroundColor: BRAND_COLORS.goldenYellow,
+                          }}
+                        >
+                          <Text style={{ fontSize: 9, fontWeight: '900', color: BRAND_COLORS.charcoalBlack }}>
+                            SPONSORED
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </Pressable>
+                ))
+              : null}
             <Text style={[styles.resultCount, { color: surface.textSecondary }]}>
               {rows.length} result{rows.length === 1 ? '' : 's'} · sab stores me search kiya
             </Text>

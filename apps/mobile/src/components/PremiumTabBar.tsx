@@ -33,6 +33,7 @@ const TAB_VISUALS: Record<string, TabVisual> = {
   MerchantCatalog: { icon: 'cube-outline', iconActive: 'cube', label: 'Inventory' },
   MerchantKhata: { icon: 'wallet-outline', iconActive: 'wallet', label: 'Khata' },
   MerchantStore: { icon: 'storefront-outline', iconActive: 'storefront', label: 'Store' },
+  MerchantAds: { icon: 'megaphone-outline', iconActive: 'megaphone', label: 'Ads' },
   // Rider
   RiderDuty: { icon: 'bicycle-outline', iconActive: 'bicycle', label: 'Duty' },
   RiderEarnings: { icon: 'cash-outline', iconActive: 'cash', label: 'Earnings' },

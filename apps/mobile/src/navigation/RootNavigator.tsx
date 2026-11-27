@@ -21,9 +21,14 @@ import { NotificationCenterScreen } from '@/screens/customer/NotificationCenterS
 import { RequestItScreen } from '@/screens/customer/RequestItScreen';
 import { ZaffyChatScreen } from '@/screens/customer/ZaffyChatScreen';
 import { RazorpayCheckoutScreen } from '@/screens/customer/RazorpayCheckoutScreen';
+import { RatingTipScreen } from '@/screens/customer/RatingTipScreen';
+import { InviteScreen } from '@/screens/customer/InviteScreen';
+import { ProScreen } from '@/screens/customer/ProScreen';
+import { ZaffIdScreen } from '@/screens/customer/ZaffIdScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
+import { MerchantAdsScreen } from '@/screens/merchant/MerchantAdsScreen';
 import { RiderShiftKycScreen } from '@/screens/rider/RiderShiftKycScreen';
 import { RiderTasksScreen } from '@/screens/rider/RiderTasksScreen';
 import { RiderDeliveryOtpScreen } from '@/screens/rider/RiderDeliveryOtpScreen';
@@ -52,6 +57,10 @@ export type CustomerStackParamList = {
   RequestIt: undefined;
   ZaffyChat: { initialQuery?: string } | undefined;
   RazorpayCheckout: { razorpayOrderId: string; amountPaise: number; currency: string; orderNumber: string; orderId: string } | undefined;
+  RatingTip: { orderId: string } | undefined;
+  Invite: undefined;
+  Pro: undefined;
+  ZaffId: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -64,6 +73,7 @@ export type CustomerTabParamList = {
 
 export type MerchantTabParamList = {
   MerchantOrders: undefined;
+  MerchantAds: undefined;
   MerchantCatalog: undefined;
   MerchantKhata: undefined;
   MerchantStore: undefined;
@@ -155,6 +165,10 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="RequestIt" component={RequestItScreen} />
     <CustomerStackNav.Screen name="ZaffyChat" component={ZaffyChatScreen} />
     <CustomerStackNav.Screen name="RazorpayCheckout" component={RazorpayCheckoutScreen} />
+    <CustomerStackNav.Screen name="RatingTip" component={RatingTipScreen} />
+    <CustomerStackNav.Screen name="Invite" component={InviteScreen} />
+    <CustomerStackNav.Screen name="Pro" component={ProScreen} />
+    <CustomerStackNav.Screen name="ZaffId" component={ZaffIdScreen} />
   </CustomerStackNav.Navigator>
 );
 
@@ -186,6 +200,12 @@ const MerchantTabs: React.FC = () => (
           onOpenInventory={() => navigation.navigate('MerchantCatalog')}
         />
       )}
+    </MerchantTab.Screen>
+    <MerchantTab.Screen
+      name="MerchantAds"
+      options={{ title: 'Ads' }}
+    >
+      {() => <MerchantAdsScreen />}
     </MerchantTab.Screen>
     <MerchantTab.Screen
       name="MerchantStore"
