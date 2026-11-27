@@ -18,6 +18,7 @@ import { OrderTrackingScreen } from '@/screens/customer/OrderTrackingScreen';
 import { UniversalSearchScreen } from '@/screens/customer/UniversalSearchScreen';
 import { CategoryDeepDiveScreen } from '@/screens/customer/CategoryDeepDiveScreen';
 import { NotificationCenterScreen } from '@/screens/customer/NotificationCenterScreen';
+import { RequestItScreen } from '@/screens/customer/RequestItScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
@@ -46,6 +47,7 @@ export type CustomerStackParamList = {
   UniversalSearch: { initialQuery?: string } | undefined;
   CategoryDeepDive: { category?: string } | undefined;
   NotificationCenter: undefined;
+  RequestIt: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -146,6 +148,7 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="UniversalSearch" component={UniversalSearchScreen} />
     <CustomerStackNav.Screen name="CategoryDeepDive" component={CategoryDeepDiveScreen} />
     <CustomerStackNav.Screen name="NotificationCenter" component={NotificationCenterScreen} />
+    <CustomerStackNav.Screen name="RequestIt" component={RequestItScreen} />
   </CustomerStackNav.Navigator>
 );
 
