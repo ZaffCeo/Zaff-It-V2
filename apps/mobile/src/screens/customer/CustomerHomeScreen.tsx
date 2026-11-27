@@ -119,8 +119,17 @@ interface StoreInfo {
   min_order_paise: number;
 }
 
-// Real Makrana pilot stores (mirrors public.stores seed data).
+// Real Makrana stores (mirrors public.stores). Zaff Fresh godown = own supply.
 const FALLBACK_STORES: StoreInfo[] = [
+  {
+    id: 'str_zaff_fresh_godown',
+    name: 'Zaff Fresh — Apna Fruits Godown',
+    address_line1: 'Zaff Fresh Godown, Fruit Mandi Road',
+    city: 'Makrana',
+    is_open: true,
+    prep_time_minutes: 15,
+    min_order_paise: 4900,
+  },
   {
     id: 'str_makrana_kirana_01',
     name: 'Makrana Super Kirana - Station Road',
@@ -163,6 +172,45 @@ const ZAFFY_QUICK_PROMPTS = [
 ];
 
 const FALLBACK_PRODUCTS: CatalogueProduct[] = [
+  {
+    product_id: 'prod_zf_banana',
+    store_id: 'str_zaff_fresh_godown',
+    store_name: 'Zaff Fresh — Apna Fruits Godown',
+    name: 'Zaff Fresh Robusta Banana',
+    category_name: 'Fruits & Veggies',
+    mrp_paise: 5500,
+    selling_price_paise: 4500,
+    available_to_sell: 120,
+    unit_label: '12 pcs',
+    eta_min_minutes: 15,
+    eta_max_minutes: 22,
+  },
+  {
+    product_id: 'prod_zf_apple',
+    store_id: 'str_zaff_fresh_godown',
+    store_name: 'Zaff Fresh — Apna Fruits Godown',
+    name: 'Zaff Fresh Shimla Apple',
+    category_name: 'Fruits & Veggies',
+    mrp_paise: 18000,
+    selling_price_paise: 14900,
+    available_to_sell: 80,
+    unit_label: '1 kg',
+    eta_min_minutes: 15,
+    eta_max_minutes: 22,
+  },
+  {
+    product_id: 'prod_zf_orange',
+    store_id: 'str_zaff_fresh_godown',
+    store_name: 'Zaff Fresh — Apna Fruits Godown',
+    name: 'Zaff Fresh Nagpur Orange',
+    category_name: 'Fruits & Veggies',
+    mrp_paise: 8000,
+    selling_price_paise: 6500,
+    available_to_sell: 90,
+    unit_label: '1 kg',
+    eta_min_minutes: 15,
+    eta_max_minutes: 22,
+  },
   {
     product_id: 'prod_tomato_500g',
     store_id: 'str_makrana_kirana_01',
@@ -1436,6 +1484,57 @@ export const CustomerHomeScreen: React.FC = () => {
           </LinearGradient>
         </Pressable>
       </View>
+
+      {/* Zaff Fresh — hamara apna fruits godown (own supply) */}
+      <View style={styles.zaffFreshWrap}>
+        <LinearGradient
+          colors={['#0E7A38', '#16A34A', '#4ADE80']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.zaffFreshGradient}
+        >
+          <View style={styles.zaffFreshLeft}>
+            <View style={styles.zaffFreshBadge}>
+              <Ionicons name="leaf" size={10} color="#0E2A16" />
+              <Text style={styles.zaffFreshBadgeText}>ZAFF FRESH · OWN SUPPLY</Text>
+            </View>
+            <Text style={styles.zaffFreshTitle}>Hamara Apna Fruits Godown 🍎</Text>
+            <Text style={styles.zaffFreshSub} numberOfLines={2}>
+              Fruits seedha hamare godown se — mandi rate par, roz fresh stock,
+              15 min pack & dispatch.
+            </Text>
+            <Pressable
+              onPress={() => {
+                setSelectedCategory('All');
+                setSearchQuery('Zaff Fresh');
+                setHomeToast('Zaff Fresh godown ka poora catalogue neeche hai');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Shop Zaff Fresh fruits"
+              style={({ pressed }) => [
+                styles.zaffFreshCta,
+                { opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Text style={styles.zaffFreshCtaText}>Fresh Fruits Dekho</Text>
+              <Ionicons name="arrow-forward" size={14} color="#0E2A16" />
+            </Pressable>
+          </View>
+          <View style={styles.zaffFreshArt}>
+            <Text style={styles.zaffFreshArtText}>🍎🍌🍊</Text>
+          </View>
+        </LinearGradient>
+      </View>
+
+      {/* Zaff Fresh — godown direct row */}
+      {renderThemedRow(
+        'Zaff Fresh — Seedha Godown Se',
+        'leaf-outline',
+        products.filter((pr) =>
+          pr.store_name.toLowerCase().includes('zaff fresh'),
+        ),
+        'DIRECT SUPPLY',
+      )}
 
       {/* Taaza Mandi Se — fresh harvest row */}
       {renderThemedRow(
@@ -3247,4 +3346,66 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: BRAND_COLORS.charcoalBlack,
   },
+  // ---- Zaff Fresh godown banner ----
+  zaffFreshWrap: { marginTop: SPACING.lg },
+  zaffFreshGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADII.lg,
+    padding: SPACING.md,
+  },
+  zaffFreshLeft: { flex: 1, paddingRight: SPACING.sm },
+  zaffFreshBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: 'rgba(14,42,22,0.35)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  zaffFreshBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#FFE9A8',
+    letterSpacing: 0.6,
+  },
+  zaffFreshTitle: {
+    fontSize: TYPOGRAPHY.titleMd.fontSize,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  zaffFreshSub: {
+    fontSize: TYPOGRAPHY.bodySm.fontSize,
+    lineHeight: TYPOGRAPHY.bodySm.lineHeight,
+    color: 'rgba(255,255,255,0.88)',
+    marginTop: 3,
+  },
+  zaffFreshCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    backgroundColor: '#FFEB99',
+    borderRadius: RADII.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 7,
+    marginTop: SPACING.sm,
+  },
+  zaffFreshCtaText: {
+    fontSize: TYPOGRAPHY.bodySm.fontSize,
+    fontWeight: '900',
+    color: '#0E2A16',
+  },
+  zaffFreshArt: {
+    width: 62,
+    height: 62,
+    borderRadius: RADII.md,
+    backgroundColor: 'rgba(255,235,153,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zaffFreshArtText: { fontSize: 22 },
 });
