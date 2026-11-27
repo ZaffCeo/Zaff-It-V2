@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "deno.unstable"],
+    "strictPropertyInitialization": false
+  },
+  "lock": false
+}
