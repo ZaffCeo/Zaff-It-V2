@@ -246,6 +246,9 @@ export const CustomerHomeScreen: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const unreadNotificationCount = useAppStore((s) => s.unreadNotificationCount);
   const setUnreadNotificationCount = useAppStore((s) => s.setUnreadNotificationCount);
+  // ZaffCoin balance: live from wallet_ledger when a real session exists;
+  // demo builds keep the established 425 display value.
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [promoIndex, setPromoIndex] = useState(0);
   const [products, setProducts] = useState<CatalogueProduct[]>(FALLBACK_PRODUCTS);
@@ -341,6 +344,31 @@ export const CustomerHomeScreen: React.FC = () => {
         setUnreadNotificationCount(count ?? 0);
       });
   }, [setUnreadNotificationCount]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      // demo mode: no backend — keep the classic demo chip value
+      setCoinBalance(425);
+      return;
+    }
+    supabase.auth
+      .getSession()
+      .then(({ data: sess }) => {
+        const uid = sess.session?.user?.id;
+        if (!uid) {
+          setCoinBalance(425); // dev demo session (no Supabase JWT)
+          return;
+        }
+        return supabase
+          .from('wallet_ledger')
+          .select('balance_after')
+          .eq('user_id', uid)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .then(({ data }) => setCoinBalance(data?.[0]?.balance_after ?? 0));
+      })
+      .catch(() => setCoinBalance((b) => b ?? null));
+  }, []);
 
   useEffect(() => {
     const id = setInterval(
@@ -679,7 +707,13 @@ export const CustomerHomeScreen: React.FC = () => {
             accessibilityLabel="Z-Coins Wallet"
             style={styles.coinsChip}
           >
-            <Text style={styles.coinsChipText}>🪙 425</Text>
+            <Image
+              source={require('../../../assets/zaffcoin.png')}
+              style={styles.coinIcon}
+              resizeMode="contain"
+              accessibilityLabel="ZaffCoin"
+            />
+            <Text style={styles.coinsChipText}>{coinBalance ?? ''}</Text>
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate('NotificationCenter')}
@@ -1296,6 +1330,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
+  },
+  coinIcon: {
+    width: 18,
+    height: 18,
+    marginRight: 3,
   },
   coinsChipText: {
     fontSize: 12,

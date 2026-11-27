@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -128,12 +129,12 @@ export const WalletScreen: React.FC = () => {
           style={styles.hero}
         >
           <View style={styles.coinRing}>
-            <LinearGradient
-              colors={['#FFDF94', '#FFC703', '#E0AE00']}
-              style={styles.coinFace}
-            >
-              <Text style={styles.coinGlyph}>Z</Text>
-            </LinearGradient>
+            <Image
+              source={require('../../../assets/zaffcoin.png')}
+              style={styles.coinFaceImage}
+              resizeMode="contain"
+              accessibilityLabel="ZaffCoin"
+            />
           </View>
           <View style={styles.heroRight}>
             <Text style={styles.heroLabel}>Z-COIN BALANCE</Text>
@@ -208,14 +209,21 @@ export const WalletScreen: React.FC = () => {
                     { backgroundColor: affordable ? BRAND_COLORS.goldenYellow : surface.surface3 },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.rewardCoinText,
-                      { color: affordable ? BRAND_COLORS.charcoalBlack : surface.textMuted },
-                    ]}
-                  >
-                    🪙 {r.coins}
-                  </Text>
+                  <View style={styles.rewardCoinInner}>
+                    <Image
+                      source={require('../../../assets/zaffcoin.png')}
+                      style={styles.miniCoinIcon}
+                      resizeMode="contain"
+                    />
+                    <Text
+                      style={[
+                        styles.rewardCoinText,
+                        { color: affordable ? BRAND_COLORS.charcoalBlack : surface.textMuted },
+                      ]}
+                    >
+                      {r.coins}
+                    </Text>
+                  </View>
                 </View>
               </PressableScale>
             );
@@ -339,14 +347,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: 'rgba(255,199,3,0.25)',
   },
-  coinFace: {
+  coinFaceImage: {
     width: 84,
     height: 84,
-    borderRadius: 999,
+  },
+  rewardCoinInner: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  coinGlyph: { fontSize: 40, fontWeight: '900', color: '#6E5400' },
+  miniCoinIcon: {
+    width: 14,
+    height: 14,
+    marginRight: 4,
+  },
   heroRight: { flex: 1 },
   heroLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: '#FFDF94' },
   heroBalance: { fontSize: 44, fontWeight: '900', color: '#FFFFFF', lineHeight: 52 },
