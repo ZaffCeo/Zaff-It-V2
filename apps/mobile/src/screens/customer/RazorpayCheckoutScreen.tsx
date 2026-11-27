@@ -99,7 +99,7 @@ export const RazorpayCheckoutScreen: React.FC<Props> = ({ navigation, route }) =
         <WebView
           key={reloadKey}
           source={{ baseUrl: 'https://checkout.razorpay.com', html }}
-          originWhitelist={['*']}
+          originWhitelist={['https://*.razorpay.com', 'https://razorpay.com', 'about:*']}
           javaScriptEnabled
           domStorageEnabled
           thirdPartyCookiesEnabled

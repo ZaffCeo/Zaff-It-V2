@@ -1,6 +1,8 @@
 // Catalog enrichment: fills products.image_url from Open Food Facts — free,
 // open-licence product DB (images CC-BY-SA, attribution kept in product meta).
-// Trigger: GET /functions/v1/catalog-enrich?token=<ENRICH_TOKEN secret>
+// Trigger: GET /functions/v1/catalog-enrich with header x-enrich-token: <ENRICH_TOKEN secret>.
+// (Security review: token no longer accepted via URL query — query strings leak
+// into proxy/CDN access logs. Callers must send the header.)
 // Processes up to LIMIT products with NULL image_url per call (repeatable).
 // v3: 1.2s inter-request delay — OFF throttles rapid bursts with 503.
 import { createClient } from 'npm:@supabase/supabase-js@^2.49.0';
@@ -13,7 +15,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 Deno.serve(async (req: Request): Promise<Response> => {
   const headers = { 'Content-Type': 'application/json' };
 
-  const token = new URL(req.url).searchParams.get('token');
+  const token = req.headers.get('x-enrich-token');
   const expected = Deno.env.get('ENRICH_TOKEN');
   if (!expected || !token || token !== expected) {
     return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers });
