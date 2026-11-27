@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -19,6 +20,7 @@ import {
   TOUCH_TARGETS,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { supabase, isSupabaseConfigured } from '@/services/supabase';
 
 export type RiderTasksLoadState = 'ready' | 'loading' | 'empty' | 'error';
 export type TaskPhase = 'offer' | 'pickup_en_route' | 'picked_up' | 'handover_ready';
@@ -102,6 +104,7 @@ export const RiderTasksScreen: React.FC<RiderTasksScreenProps> = ({
 }) => {
   const [loadState, setLoadState] = useState<RiderTasksLoadState>(initialState);
   const [isOnline, setIsOnline] = useState(initialOnline);
+  const [sosSending, setSosSending] = useState(false);
   const [assignment, setAssignment] = useState<RiderAssignment | null>(initialAssignment);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -167,6 +170,54 @@ export const RiderTasksScreen: React.FC<RiderTasksScreenProps> = ({
     if (onConfirmPickup) void onConfirmPickup(assignment.taskId);
   }, [assignment, onConfirmPickup]);
 
+  const handleSos = () => {
+    Alert.alert(
+      'Rider SOS',
+      'Emergency alert control room ko bhejni hai? (Accident, threat, ya kisi bhi emergency me)',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Bhejo SOS',
+          style: 'destructive',
+          onPress: async () => {
+            if (sosSending) return;
+            setSosSending(true);
+            try {
+              const { data: sess } = await supabase.auth.getSession();
+              const uid = sess.session?.user?.id;
+              if (!uid || !isSupabaseConfigured()) {
+                Alert.alert('Offline', 'Network nahi hai. Direct store/control room ko call karein.');
+                return;
+              }
+              const stamp = new Date().toISOString();
+              const { error } = await supabase.from('support_tickets').insert({
+                ticket_number: `TKT-SOS-${Date.now().toString(36).toUpperCase()}`,
+                user_id: uid,
+                category: 'sos',
+                subject: 'RIDER SOS ALERT',
+                description: `Rider emergency alert fired at ${stamp}. Online: ${isOnline ? 'yes' : 'no'}. Last assignment: ${assignment?.orderCode ?? 'none'}.`,
+                priority: 'critical',
+                status: 'open',
+              });
+              if (error) {
+                Alert.alert('SOS fail', 'Bheja nahi ja saka. Turant control room ko call karein.');
+                return;
+              }
+              Alert.alert(
+                'SOS bhej diya gaya ✅',
+                'Control room ko alert mil gaya. Help raste me hai. Zaruri ho to turant call karein.',
+              );
+            } catch {
+              Alert.alert('SOS fail', 'Turant control room ko call karein.');
+            } finally {
+              setSosSending(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   if (loadState === 'loading') {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -196,6 +247,16 @@ export const RiderTasksScreen: React.FC<RiderTasksScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      {/* Floating SOS — emergency alert to control room */}
+      <TouchableOpacity
+        style={[styles.sosFab, sosSending && { opacity: 0.6 }]}
+        onPress={handleSos}
+        disabled={sosSending}
+        accessibilityRole="button"
+        accessibilityLabel="Rider emergency SOS"
+      >
+        <Text style={styles.sosFabText}>SOS</Text>
+      </TouchableOpacity>
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
@@ -526,6 +587,29 @@ const styles = StyleSheet.create({
   skeletonWrap: { padding: SPACING.screenPadding, gap: SPACING.md },
   skeletonBar: { height: 72, borderRadius: RADII.lg, backgroundColor: SURFACE_DARK.surface2 },
   skeletonCard: { height: 280, borderRadius: RADII.lg, backgroundColor: SURFACE_DARK.surface2 },
+  sosFab: {
+    position: 'absolute',
+    bottom: 96,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+    elevation: 6,
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  sosFabText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
 });
 
 export default RiderTasksScreen;
