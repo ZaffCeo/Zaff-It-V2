@@ -220,10 +220,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Dual access mode (availability while SMS provider is not yet connected):
   //   * signed-in Supabase user  -> full grounding (own orders + catalogue)
-  //   * anon-key demo session    -> catalogue-only grounding, IP rate-limited,
+  //   * anon public key demo     -> catalogue-only grounding, IP rate-limited,
   //     gated by ALLOW_ZAFFY_ANON secret. Any OTHER bearer is rejected.
+  //
+  // Anon gate validates the bearer STRUCTURALLY (a genuine anon-role JWT for
+  // this project ref, or the new sb_publishable_… public key) instead of
+  // string-comparing against this function's SUPABASE_ANON_KEY env copy —
+  // string equality breaks whenever the client env and the function secret
+  // drift (root cause of the reported demo-mode 401). An anon session never
+  // unlocks user data: grounding is catalogue-only and rate-limited either
+  // way, so the gate only needs to distinguish "public caller" from garbage.
   const anonAllowed = Deno.env.get('ALLOW_ZAFFY_ANON') === 'true';
-  const isAnonSession = !authData?.user && anonAllowed && bearer === anonKey;
+  const isAnonBearer = (() => {
+    if (bearer.startsWith('sb_publishable_')) return true;
+    const parts = bearer.split('.');
+    if (parts.length !== 3) return false;
+    try {
+      const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+      const payload = JSON.parse(atob(padded)) as { role?: string; ref?: string };
+      return payload.role === 'anon' && typeof payload.ref === 'string' && payload.ref.length > 0;
+    } catch {
+      return false;
+    }
+  })();
+  const isAnonSession = !authData?.user && anonAllowed && isAnonBearer;
   if (!authData?.user && !isAnonSession) {
     return jsonError(401, 'UNAUTHORIZED', 'Invalid or expired Supabase JWT', requestId);
   }

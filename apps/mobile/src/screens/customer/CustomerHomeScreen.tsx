@@ -39,7 +39,7 @@ import {
   type CartItem,
 } from '@/store/useAppStore';
 import { getTranslation } from '@/i18n/translations';
-import { isSupabaseConfigured, supabase, SUPABASE_ANON_KEY, SUPABASE_FUNCTIONS_URL } from '@/services/supabase';
+import { ensureFreshSession, isSupabaseConfigured, supabase, SUPABASE_FUNCTIONS_URL } from '@/services/supabase';
 import {
   EmptyState,
   ErrorRetryBanner,
@@ -410,23 +410,66 @@ export const CustomerHomeScreen: React.FC = () => {
 
     setZaffyLoading(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      // Real JWT when signed in; anon key when in demo session (no SMS provider
-      // yet) — the edge function validates either and serves grounded answers.
-      const token = sessionData.session?.access_token || SUPABASE_ANON_KEY;
+      // Guarantee a fresh bearer: refresh proactively when the stored access
+      // token is expired or about to expire (root-cause fix for the reported
+      // "Invalid or expired Supabase JWT" error on Zaffy).
+      const fresh = await ensureFreshSession();
       const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/zaffy-ai-assistant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${fresh.token}`,
         },
         body: JSON.stringify({
           query: trimmed,
-          locale: language === 'hi' ? 'hi-IN' : 'en-IN',
+          // Backend zod enum: 'en-IN' | 'hi' | 'hinglish'. (Earlier code sent
+          // 'hi-IN', which the backend rejected with 400 for Hindi users.)
+          locale: language === 'hi' ? 'hi' : language === 'hi-Latn' ? 'hinglish' : 'en-IN',
           ...(products[0]?.store_id ? { store_id: products[0].store_id } : {}),
         }),
       });
       const json = (await response.json()) as { reply?: string; error?: { message?: string } };
+
+      if (response.status === 401) {
+        // One explicit refresh + retry; if it still 401s, the session is dead —
+        // guide re-login instead of showing a raw token error.
+        if (fresh.mode === 'user') {
+          try {
+            const { data: refreshed } = await supabase.auth.refreshSession();
+            const retryToken = refreshed.session?.access_token;
+            if (retryToken) {
+              const retry = await fetch(`${SUPABASE_FUNCTIONS_URL}/zaffy-ai-assistant`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${retryToken}`,
+                },
+                body: JSON.stringify({
+                  query: trimmed,
+                  locale: language === 'hi' ? 'hi' : language === 'hi-Latn' ? 'hinglish' : 'en-IN',
+                  ...(products[0]?.store_id ? { store_id: products[0].store_id } : {}),
+                }),
+              });
+              if (retry.ok) {
+                const retryJson = (await retry.json()) as { reply?: string };
+                if (retryJson.reply) {
+                  setZaffyReply(retryJson.reply);
+                  return;
+                }
+              }
+            }
+          } catch {
+            // fall through to re-auth guidance
+          }
+          setZaffyReply(
+            'Session expire ho gayi. Profile → Logout karein aur dobara login karein — phir Zaffy poori shopping history ke saath jawab dega.',
+          );
+          return;
+        }
+        setZaffyReply(json.reply ?? json.error?.message ?? t.errorGeneric);
+        return;
+      }
+
       setZaffyReply(json.reply ?? json.error?.message ?? t.errorGeneric);
     } catch {
       setZaffyReply(t.errorGeneric);
@@ -724,6 +767,19 @@ export const CustomerHomeScreen: React.FC = () => {
           placeholderTextColor="#94A3B8"
           style={[styles.searchInput, { color: surface.textPrimary }]}
         />
+        {searchQuery.length > 0 ? (
+          <Pressable
+            onPress={() => {
+              setSearchQuery('');
+              loadCatalogue();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search text"
+            style={styles.searchClearBtn}
+          >
+            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={() => openZaffyWithPrompt('')}
           accessibilityRole="button"
@@ -1315,6 +1371,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.bodyMd.fontSize,
     minHeight: TOUCH_TARGETS.minSize,
   },
+  searchClearBtn: { padding: 4, marginLeft: 2 },
   micBtn: {
     minWidth: TOUCH_TARGETS.minSize,
     minHeight: TOUCH_TARGETS.minSize,
