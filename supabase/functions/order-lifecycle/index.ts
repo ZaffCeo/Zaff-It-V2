@@ -213,10 +213,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const roles = new Set((roleRows ?? []).map((r: { role: string }) => r.role));
   const isAdmin = roles.has('admin');
 
-  // Customer: create_support_ticket
+  // Any authenticated role: create_support_ticket (support is universal;
+  // riders can fire SOS, merchants can open disputes)
   if (payload.action === 'create_support_ticket') {
-    if (!roles.has('customer') && !isAdmin) {
-      return jsonError(403, 'FORBIDDEN', 'Customer role required to create support ticket', requestId);
+    if (!roles.has('customer') && !roles.has('merchant') && !roles.has('rider') && !isAdmin) {
+      return jsonError(403, 'FORBIDDEN', 'Sign in to create a support ticket', requestId);
     }
 
     if (payload.order_id) {

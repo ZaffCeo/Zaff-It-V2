@@ -15,6 +15,9 @@ import {
   type ProductDetailInput,
 } from '@/screens/customer/ProductDetailScreen';
 import { OrderTrackingScreen } from '@/screens/customer/OrderTrackingScreen';
+import { UniversalSearchScreen } from '@/screens/customer/UniversalSearchScreen';
+import { CategoryDeepDiveScreen } from '@/screens/customer/CategoryDeepDiveScreen';
+import { NotificationCenterScreen } from '@/screens/customer/NotificationCenterScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
@@ -40,6 +43,9 @@ export type CustomerStackParamList = {
   Wallet: undefined;
   ProductDetail: { product?: ProductDetailInput } | undefined;
   OrderTracking: { orderId?: string } | undefined;
+  UniversalSearch: { initialQuery?: string } | undefined;
+  CategoryDeepDive: { category?: string } | undefined;
+  NotificationCenter: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -137,6 +143,9 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="Wallet" component={WalletScreen} />
     <CustomerStackNav.Screen name="ProductDetail" component={ProductDetailScreen} />
     <CustomerStackNav.Screen name="OrderTracking" component={OrderTrackingScreen} />
+    <CustomerStackNav.Screen name="UniversalSearch" component={UniversalSearchScreen} />
+    <CustomerStackNav.Screen name="CategoryDeepDive" component={CategoryDeepDiveScreen} />
+    <CustomerStackNav.Screen name="NotificationCenter" component={NotificationCenterScreen} />
   </CustomerStackNav.Navigator>
 );
 

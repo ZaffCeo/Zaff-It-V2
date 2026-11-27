@@ -244,6 +244,8 @@ export const CustomerHomeScreen: React.FC = () => {
   const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
 
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const unreadNotificationCount = useAppStore((s) => s.unreadNotificationCount);
+  const setUnreadNotificationCount = useAppStore((s) => s.setUnreadNotificationCount);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [promoIndex, setPromoIndex] = useState(0);
   const [products, setProducts] = useState<CatalogueProduct[]>(FALLBACK_PRODUCTS);
@@ -328,6 +330,17 @@ export const CustomerHomeScreen: React.FC = () => {
       setLoading(false);
     }
   }, [searchQuery, t.errorGeneric]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .is('read_at', null)
+      .then(({ count }) => {
+        setUnreadNotificationCount(count ?? 0);
+      });
+  }, [setUnreadNotificationCount]);
 
   useEffect(() => {
     const id = setInterval(
@@ -626,7 +639,7 @@ export const CustomerHomeScreen: React.FC = () => {
             <Text style={styles.coinsChipText}>🪙 425</Text>
           </Pressable>
           <Pressable
-            onPress={() => navigation.navigate('TrackingTab')}
+            onPress={() => navigation.navigate('NotificationCenter')}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
             style={styles.bellBtn}
@@ -636,9 +649,13 @@ export const CustomerHomeScreen: React.FC = () => {
               size={24}
               color={surface.textPrimary}
             />
-            <View style={styles.notifBadge}>
-              <Text style={styles.notifBadgeText}>2</Text>
-            </View>
+            {unreadNotificationCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>
+                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                </Text>
+              </View>
+            )}
           </Pressable>
 
           <Pressable
@@ -699,6 +716,10 @@ export const CustomerHomeScreen: React.FC = () => {
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
+          onSubmitEditing={() =>
+            navigation.navigate('UniversalSearch', { initialQuery: searchQuery })
+          }
+          returnKeyType="search"
           placeholder="Need-It? Zaff-It. Search anything..."
           placeholderTextColor="#94A3B8"
           style={[styles.searchInput, { color: surface.textPrimary }]}
@@ -803,7 +824,11 @@ export const CustomerHomeScreen: React.FC = () => {
           Top Categories
         </Text>
         <Pressable
-          onPress={() => setSelectedCategory('All')}
+          onPress={() =>
+            navigation.navigate('CategoryDeepDive', {
+              category: selectedCategory === 'All' ? undefined : selectedCategory,
+            })
+          }
           accessibilityRole="button"
           style={styles.seeAllBtn}
         >
@@ -887,7 +912,7 @@ export const CustomerHomeScreen: React.FC = () => {
           Trending Right Now 🔥
         </Text>
         <Pressable
-          onPress={() => setSelectedCategory('All')}
+          onPress={() => navigation.navigate('CategoryDeepDive', { category: undefined })}
           accessibilityRole="button"
           style={styles.seeAllBtn}
         >

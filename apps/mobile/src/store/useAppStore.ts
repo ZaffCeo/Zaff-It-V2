@@ -59,6 +59,9 @@ export interface AppState {
   selectedAddressId: string | null;
   selectedAddressLabel: string;
 
+  // Runtime notification badge (not persisted intentionally via partialize)
+  unreadNotificationCount: number;
+
   // Offline-persisted single-store Cart (integer paise)
   cartStoreId: string | null;
   cartStoreName: string | null;
@@ -80,6 +83,7 @@ export interface AppState {
   setActiveOrderId: (orderId: string | null) => void;
   setCouponCode: (code: string | null) => void;
   setPromoCode: (code: string | null) => void;
+  setUnreadNotificationCount: (count: number) => void;
 
   addToCart: (item: Omit<CartItem, 'quantity'>) => { switchedStore: boolean };
   replaceCartWithItem: (item: Omit<CartItem, 'quantity'>) => void;
@@ -167,6 +171,7 @@ export const useAppStore = create<AppState>()(
       language: 'en',
       colorScheme: 'light',
       hasCompletedOnboarding: false,
+      unreadNotificationCount: 0,
       zone: DEFAULT_MAKRANA_ZONE,
       selectedAddressId: null,
       selectedAddressLabel: '',
@@ -188,6 +193,7 @@ export const useAppStore = create<AppState>()(
       setLanguage: (language) => set({ language }),
       setColorScheme: (colorScheme) => set({ colorScheme }),
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
+      setUnreadNotificationCount: (count: number) => set({ unreadNotificationCount: Math.max(0, Math.trunc(count)) }),
       setZone: (zone) => set({ zone }),
       setSelectedAddressId: (selectedAddressId) => set({ selectedAddressId }),
       setSelectedAddressLabel: (selectedAddressLabel) =>
