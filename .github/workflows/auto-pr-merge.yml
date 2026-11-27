@@ -1,0 +1,55 @@
+name: Auto PR + Merge
+
+# Arena session pipeline: har push par arena/* branch se main me
+# PR automatically create + merge ho jaata hai.
+# Merge ke baad Vercel ka Git integration main ko auto-deploy karta hai.
+# (Zaff-It-V2 -> Vercel project "zaff-it" Git link)
+
+on:
+  push:
+    branches:
+      - 'arena/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  auto-pr-merge:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open & merge PR to main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="${{ github.ref_name }}"
+          git fetch origin main --quiet
+          AHEAD=$(git rev-list --count origin/main..HEAD)
+          echo "Commits ahead of main: $AHEAD"
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "Branch already merged - nothing to do."
+            exit 0
+          fi
+          PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            TITLE=$(git log -1 --pretty=%s)
+            PR_URL=$(gh pr create --base main --head "$BRANCH" \
+              --title "Auto: $TITLE" \
+              --body "Automated PR from pipeline: push → PR → merge → Vercel auto-deploy.")
+            PR="${PR_URL##*/}"
+          fi
+          echo "Merging PR #$PR"
+          gh pr merge "$PR" --merge || { sleep 5; gh pr merge "$PR" --merge; }
+          echo "PR #$PR merged."
