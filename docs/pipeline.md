@@ -1,32 +1,32 @@
 # Zaff-It Delivery Pipeline
 
-## Automatic flow (setup: 2026-11-27)
+## Flow (founder-controlled — 2026-11-27 se)
 
 ```
-Agent/founder push → arena/* branch
+Agent changes → commit + push (arena branch)
+        ↓   (kuch automatic NAHI — na deploy, na PR)
+Founder clicks "Create PR"   ← github.com/ZaffCeo/Zaff-It-V2/compare/main...arena/565f9ef2-zaff-it-v2
         ↓
-GitHub Action "Auto PR + Merge"
-        ↓  (PR create + merge — pull_request event pe bhi)
-main updated
+CI checks (tsc + deno) PR par chalte hain
         ↓
-Vercel Git integration (project "zaff-it" ← ZaffCeo/Zaff-It-V2)
+Founder review karke "Merge" click karta hai
         ↓
-Production build (~70-90s) → zaff-it.vercel.app LIVE
+Vercel Git integration → production deploy → zaff-it.vercel.app LIVE (~80s)
 ```
 
 ## Rules
 
-- `arena/*` branch par har push ek PR kholega/merge karega (workflow: `.github/workflows/auto-pr-merge.yml`).
-- `main` par sirf merged PR ka code aata hai — direct push nahi.
-- Merge ke turant baad Vercel production deploy khud start hota hai; `zaff-it.vercel.app` alias khud update hota hai.
-- Branch (preview) deploys: har arena push ka preview URL bhi milta hai (`zaff-it-git-<branch>-farzand-alis-projects.vercel.app`).
+- **arena/* pushes par kuch nahi hota:** branch preview deploys disabled (`vercel.json` → `git.deploymentEnabled`), auto-PR/auto-merge workflow removed (`.github/workflows/auto-pr-merge.yml` deleted).
+- **PR sirf founder ke "Create PR" click par banta hai** — agent kabhi khud PR nahi banata; har wave ke baad sirf commit+push + Create-PR link deta hai.
+- **Deploy sirf merge ke baad** — founder ki explicit merge action par Vercel production deploy karta hai (yeh "jaise hi merge ho to deploy" rule ab bhi active hai).
+- CI checks (TypeScript + deno) har PR par automatic chalte hain — merge se pehle green hona chahiye.
 
-## Manual fallback
+## Manual controls (re-enable karna ho to)
 
-- PR create GITHUB_TOKEN se blocked ho to agent/founder manually PR kholta hai — workflow us PR ko `opened` event par khud merge kar deta hai.
-- Repo setting (one-time, founder console): Settings → Actions → General → **"Allow GitHub Actions to create and approve pull requests"** — isse PR create bhi fully automatic ho jayega.
+- **Auto-merge wapas:** `.github/workflows/auto-pr-merge.yml` git history se restore karo (pull_request opened event par merge karta tha).
+- **Branch preview deploys wapas:** `vercel.json` se `"git"` block hatao.
 
 ## Vercel projects
 
-- **zaff-it** (`prj_fW26BEitqRmgwlPYoB2qUD3gMGQw`) — ACTIVE production, Git: `ZaffCeo/Zaff-It-V2`.
-- **zaff-it-old** (`prj_vsV8oLwUmdPomDyBxPIHsCGtCU1P`) — legacy (purana `Zaff-It-V-0.01` link); history/reference ke liye rakha hai, delete optional.
+- **zaff-it** (`prj_fW26BEitqRmgwlPYoB2qUD3gMGQw`) — ACTIVE production, Git: `ZaffCeo/Zaff-It-V2`, production branch `main`.
+- **zaff-it-old** (`prj_vsV8oLwUmdPomDyBxPIHsCGtCU1P`) — legacy (purana `Zaff-It-V-0.01` link); history/reference ke liye rakha hai.
