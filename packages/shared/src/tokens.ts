@@ -15,6 +15,10 @@ export const BRAND_COLORS = {
   electricGreenSurface: 'rgba(12, 131, 31, 0.14)',
   pureWhite: '#FFFFFF',
   softWhite: '#F8F9FA',
+  // v1.1 premium polish (additive)
+  goldSoft: '#FFF7DB',
+  goldBorder: 'rgba(255, 199, 3, 0.50)',
+  inkDeep: '#0B0C0E',
 } as const;
 
 export const SURFACE_DARK = {
@@ -31,6 +35,9 @@ export const SURFACE_DARK = {
   textMuted: '#94A3B8', // >= 4.5:1 on #121416
   onPrimary: '#121416', // Charcoal ink on Golden Yellow (>= 11.4:1 contrast)
   onSuccess: '#FFFFFF', // White ink on Electric Green #0C831F (>= 4.8:1 contrast)
+  // v1.1 premium polish (additive)
+  borderAlt: 'rgba(255, 255, 255, 0.06)',
+  overlayScrim: 'rgba(8, 9, 11, 0.62)',
 } as const;
 
 export const SURFACE_LIGHT = {
@@ -47,6 +54,9 @@ export const SURFACE_LIGHT = {
   textMuted: '#475569', // >= 7.0:1 on #F8F9FA
   onPrimary: '#121416',
   onSuccess: '#FFFFFF',
+  // v1.1 premium polish (additive)
+  borderAlt: '#EEF1F5',
+  overlayScrim: 'rgba(15, 17, 19, 0.50)',
 } as const;
 
 export const STATUS_COLORS = {
@@ -346,3 +356,38 @@ export const THEME = {
 
 export type ZaffTheme = typeof THEME;
 export type ColorSchemeMode = 'dark' | 'light';
+
+/**
+ * Elevation system v1.1 — consistent depth across all surfaces.
+ * Use with the matching mode; android elevation mirrors iOS shadow feel.
+ */
+export const DEPTH = {
+  cardDark: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  cardLight: {
+    shadowColor: 'rgba(15, 23, 42, 0.14)',
+    shadowOpacity: 0.10,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  floatDark: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  floatLight: {
+    shadowColor: 'rgba(15, 23, 42, 0.20)',
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+} as const;

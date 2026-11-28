@@ -213,14 +213,18 @@ export const CategoryDeepDiveScreen: React.FC = () => {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: surface.background }]}>
       <View style={[styles.header, { borderBottomColor: surface.border }]}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={22} color={surface.textPrimary} />
-        </Pressable>
+        {navigation.canGoBack() ? (
+          <Pressable
+            onPress={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={22} color={surface.textPrimary} />
+          </Pressable>
+        ) : null}
         <Text style={[styles.headerTitle, { color: surface.textPrimary }]}>
           {route.params?.category ?? 'Explore'}
         </Text>
