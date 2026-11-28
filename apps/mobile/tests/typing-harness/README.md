@@ -15,3 +15,10 @@ Run (from repo root, needs `npm i --no-save jsdom esbuild` first):
 - Native-only expo modules + reanimated + flash-list + safe-area-context are
   stubbed under `stubs/` — this harness never ships in the app bundle
   (`tsconfig.json` includes only `src/**`).
+
+Login-screen smoke test (Demo OTP flow, Twilio/Firebase removed):
+
+    LOGIN_TEST=1 node apps/mobile/tests/typing-harness/driver.mjs
+
+Asserts: phone input accepts 10 digits, Send OTP flips to the OTP step, the
+DEMO band shows the 6-digit code (`DEMO CODE VISIBLE: <code>`) with Auto-fill.

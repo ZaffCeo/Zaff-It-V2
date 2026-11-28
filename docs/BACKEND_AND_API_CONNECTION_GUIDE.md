@@ -114,7 +114,7 @@ ZAFF-IT uses Indian mobile number (`+91`) Phone OTP as the primary authenticatio
 2. Toggle **Enable Phone provider** ON.
 3. **Free-Tier Development & Pilot Tip:**
    - During development and closed internal testing, configure **Test Phone Numbers and OTPs** in **Authentication → Providers → Phone → Test Phone Numbers** (e.g., `+919999999999=123456`) so you spend ₹0 on SMS gateways while testing all 4 roles (`customer`, `merchant`, `rider`, `admin`).
-   - When ready for external Makrana pilot users, connect an Indian DLT-compliant SMS provider (e.g., MSG91 / Twilio / Fast2SMS) supported by Supabase Phone Auth or a custom Send SMS Auth Hook Edge Function.
+   - When ready for external Makrana pilot users, connect an Indian DLT-compliant SMS provider (e.g., MSG91 / Fast2SMS) supported by Supabase Phone Auth (Twilio/Firebase removed per founder decision 2026-11-28; Demo OTP active till then) or a custom Send SMS Auth Hook Edge Function.
 4. Go to **Authentication → URL Configuration** and add your Expo deep link scheme (e.g., `zaffit://auth-callback`).
 5. Ensure your `profiles` trigger (`handle_new_user`) assigns default role `customer` on signup; `merchant`, `rider`, and `admin` roles are promoted only by an `admin` via `admin-set-role` (and mirrored into `auth.users.raw_app_meta_data` so RLS policies read `auth.jwt() -> 'app_metadata' ->> 'role'` with zero extra DB joins).
 

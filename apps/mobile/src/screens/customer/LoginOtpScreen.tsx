@@ -26,12 +26,10 @@ import { useAppStore, type UserRole } from '@/store/useAppStore';
 import { getTranslation } from '@/i18n/translations';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 import {
-  FIREBASE_PHONE_ENABLED,
+  DEMO_OTP_ENABLED,
   activeOtpChannelLabel,
-  confirmFirebaseOtp,
-  resetFirebaseOtpFlow,
-  sendFirebaseOtp,
-} from '@/services/firebaseAuth';
+  generateDemoOtp,
+} from '@/services/otpAuth';
 import { ErrorRetryBanner, PrimaryButton } from '@/components/StateViews';
 
 export const LoginOtpScreen: React.FC = () => {
@@ -46,13 +44,14 @@ export const LoginOtpScreen: React.FC = () => {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [loading, setLoading] = useState(false);
   const [resendIn, setResendIn] = useState(0);
-  // Graceful degradation: real backend configured but SMS provider not yet
-  // connected (no Twilio/Vonage creds) — fall back to demo OTP in dev builds
-  // so the live app stays reviewable. Real SMS path is used once provider lands.
-  const [smsFallback, setSmsFallback] = useState(false);
-  // Dual-provider auth: 'firebase' = Firebase SMS -> signInWithIdToken exchange,
-  // 'supabase' = Supabase native SMS (Twilio) or demo fallback.
-  const [authMode, setAuthMode] = useState<'firebase' | 'supabase'>('supabase');
+  // Auth channels (Twilio/Firebase removed — founder decision 2026-11-28):
+  // 'demo'    = Demo OTP (code shown on screen; Indian SMS gateway baad me)
+  // 'supabase'= Supabase native SMS (goes live with EXPO_PUBLIC_DEMO_OTP=false
+  //             after the Indian gateway is configured in Supabase Auth)
+  const [authMode, setAuthMode] = useState<'demo' | 'supabase'>(
+    DEMO_OTP_ENABLED ? 'demo' : 'supabase',
+  );
+  const [demoCode, setDemoCode] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   // Premium focus states (integrated fields — no boxed look)
   const [phoneFocused, setPhoneFocused] = useState(false);
@@ -75,36 +74,23 @@ export const LoginOtpScreen: React.FC = () => {
       return;
     }
 
-    if (!isSupabaseConfigured()) {
+    // Demo OTP — Indian SMS gateway baad me; abhi code screen par dikhta hai.
+    if (DEMO_OTP_ENABLED) {
+      const code = generateDemoOtp();
+      setDemoCode(code);
+      setOtpDigits('');
+      setAuthMode('demo');
+      setResendIn(30);
+      setErrorMsg(null);
       setStep('otp');
       return;
     }
 
-    // Path A — Firebase SMS (no DLT needed; 10 free SMS/day). On failure in
-    // dev builds we silently fall through to the Supabase SMS/demo path.
-    if (FIREBASE_PHONE_ENABLED) {
-      setLoading(true);
-      try {
-        await sendFirebaseOtp(normalizedPhone);
-        setAuthMode('firebase');
-        setResendIn(30);
-        setErrorMsg(null);
-        setStep('otp');
-        return;
-      } catch (err) {
-        const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
-        if (!isDevelopmentEnv) {
-          setErrorMsg(
-            err instanceof Error && err.message ? err.message : t.errorGeneric,
-          );
-          return;
-        }
-      } finally {
-        setLoading(false);
-      }
+    // Real path — Supabase native SMS (Indian gateway configured).
+    if (!isSupabaseConfigured()) {
+      setErrorMsg('Backend configured nahi hai — EXPO_PUBLIC_SUPABASE_URL set karo.');
+      return;
     }
-
-    // Path B — Supabase native SMS (Twilio) + demo fallback.
     setAuthMode('supabase');
     setResendIn(60); // server-side OTP resend windows (Supabase) + client spam guard
     setLoading(true);
@@ -113,20 +99,11 @@ export const LoginOtpScreen: React.FC = () => {
         phone: normalizedPhone,
       });
       if (error) {
-        const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
-        if (isDevelopmentEnv) {
-          // SMS provider not connected yet (e.g. "Error sending SMS") —
-          // dev builds fall back to the demo OTP flow.
-          setSmsFallback(true);
-          setErrorMsg(null);
-          setStep('otp');
-        } else {
-          setErrorMsg(error.message);
-        }
-      } else {
-        setSmsFallback(false);
-        setStep('otp');
+        setErrorMsg(error.message);
+        return;
       }
+      setOtpDigits('');
+      setStep('otp');
     } catch {
       setErrorMsg(t.errorGeneric);
     } finally {
@@ -151,65 +128,18 @@ export const LoginOtpScreen: React.FC = () => {
       return;
     }
 
-    // Firebase path: confirm OTP -> Firebase ID token -> real Supabase
-    // session via signInWithIdToken (Firebase configured as third-party auth
-    // in the Supabase project). RLS/auth.uid() work unchanged afterwards.
-    if (authMode === 'firebase' && !smsFallback) {
-      setLoading(true);
-      try {
-        const { idToken, phone } = await confirmFirebaseOtp(code);
-        const { data, error } = await supabase.auth.signInWithIdToken({
-          provider: 'firebase',
-          token: idToken,
-        });
-        if (error) {
-          setErrorMsg(error.message);
-          return;
-        }
-        const user = data.user;
-        if (user) {
-          // Bootstrap the profile row (auth.users trigger absent). Idempotent.
-          await supabase
-            .from('profiles')
-            .upsert(
-              {
-                id: user.id,
-                phone: phone ?? normalizedPhone,
-                full_name: `ZAFF user ${(phone ?? normalizedPhone).slice(-4)}`,
-              },
-              { onConflict: 'id' },
-            );
-          const metaRole = user.app_metadata?.role as UserRole | undefined;
-          setSession(user.id, phone ?? normalizedPhone, metaRole ?? 'customer');
-        }
-      } catch (err) {
-        setErrorMsg(
-          err instanceof Error && err.message && err.message !== 'NO_PENDING_LOGIN'
-            ? err.message
-            : t.errorGeneric,
-        );
-      } finally {
-        setLoading(false);
+    // Demo path: local code match -> dev session. AUD-LOW-6: demo role switch
+    // allowed ONLY in development builds — never EXPO_PUBLIC_ENV=production.
+    if (authMode === 'demo') {
+      if (code !== demoCode) {
+        setErrorMsg(t.invalidOtpError);
+        return;
       }
-      return;
-    }
-
-    if (isSupabaseConfigured() && smsFallback) {
-      // Backend configured + SMS gateway down: NEVER mint a fake dev id here —
-      // it would flow into uuid-filtered PostgREST queries
-      // ("invalid input syntax for type uuid"). Fail loudly instead.
-      setErrorMsg('SMS gateway down — thodi der me dobara try karo.');
-      return;
-    }
-
-    if (!isSupabaseConfigured()) {
-      // AUD-LOW-6: demo role switch allowed ONLY in development builds with
-      // no backend configured — never when EXPO_PUBLIC_ENV is staging/production.
       let demoRole: UserRole | null = null;
       const isDevelopmentEnv = process.env.EXPO_PUBLIC_ENV !== 'production';
       if (isDevelopmentEnv && typeof window !== 'undefined') {
         // Role comes from ?role=<x> OR path deep-link /admin /merchant /rider
-        // (the web admin tower entry: zaff-it.vercel.app/admin).
+        // (the web admin tower entry: zaff-it.../admin).
         const param =
           new URLSearchParams(window.location.search).get('role') ??
           window.location.pathname.match(/^\/(merchant|rider|admin)\b/i)?.[1]?.toLowerCase() ??
@@ -220,6 +150,12 @@ export const LoginOtpScreen: React.FC = () => {
       }
       const role: UserRole = demoRole ?? 'customer';
       setSession(`dev-${role}-makrana`, normalizedPhone, role, { allowNonUuid: true });
+      return;
+    }
+
+    // Real path: Supabase SMS verify.
+    if (!isSupabaseConfigured()) {
+      setErrorMsg('Backend configured nahi hai — EXPO_PUBLIC_SUPABASE_URL set karo.');
       return;
     }
 
@@ -378,8 +314,8 @@ export const LoginOtpScreen: React.FC = () => {
                     onPress={() => {
                       setStep('phone');
                       setOtpDigits('');
+                      setDemoCode(null);
                       setErrorMsg(null);
-                      resetFirebaseOtpFlow();
                     }}
                     accessibilityRole="button"
                     style={styles.textLinkBtn}
@@ -395,6 +331,29 @@ export const LoginOtpScreen: React.FC = () => {
                   </Pressable>
                 </View>
 
+                {authMode === 'demo' && demoCode !== null && (
+                  <View style={styles.demoBand}>
+                    <View style={styles.demoBandLeft}>
+                      <View style={styles.demoBadge}>
+                        <Ionicons name="flask-outline" size={12} color="#121416" />
+                        <Text style={styles.demoBadgeText}>DEMO</Text>
+                      </View>
+                      <Text style={styles.demoBandText}>
+                        Demo OTP: <Text style={styles.demoBandCode}>{demoCode}</Text>
+                        {'  '}· Indian SMS gateway jald hi aa raha hai
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => handleOtpChange(demoCode)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Auto-fill demo OTP"
+                      style={styles.demoFillBtn}
+                      hitSlop={6}
+                    >
+                      <Text style={styles.demoFillText}>Auto-fill ⚡</Text>
+                    </Pressable>
+                  </View>
+                )}
                 <Pressable
                   onPress={() => setOtpFocused(true)}
                   style={styles.otpBoxesWrap}
@@ -516,6 +475,39 @@ export const LoginOtpScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  demoBand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    backgroundColor: 'rgba(255,199,3,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,199,3,0.4)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  demoBandLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  demoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFC703',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  demoBadgeText: { color: '#121416', fontSize: 9.5, fontWeight: '900', letterSpacing: 0.5 },
+  demoBandText: { flex: 1, color: '#E2E8F0', fontSize: 11.5, fontWeight: '600' },
+  demoBandCode: { color: '#FFC703', fontWeight: '900', letterSpacing: 2 },
+  demoFillBtn: {
+    backgroundColor: '#FFC703',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  demoFillText: { color: '#121416', fontSize: 11, fontWeight: '900' },
   safe: {
     flex: 1,
   },

@@ -57,7 +57,7 @@ Left sidebar → **SQL Editor** → **New query**. Ab repo ki 4 SQL files **ek-e
 Sidebar → **Authentication → Providers → Phone**:
 - **Enable** toggle ON
 - SMS provider chuno (free/cheap options):
-  - **Twilio** (trial credits milte hain) — Account SID + Auth Token + Twilio number daalo
+  - **SMS Gateway (Indian)** — abhi Demo OTP chal raha hai (`EXPO_PUBLIC_DEMO_OTP`). Gateway ke liye MSG91 / DLT-ready provider Supabase Auth → Phone me lagao, phir `EXPO_PUBLIC_DEMO_OTP=false` karo. Twilio/Firebase hata diya gaya hai.
   - **MSG91** (Indian, sasta) — Auth key daalo
 - SMS template me ye rakho:
   ```
@@ -205,7 +205,7 @@ npx eas build --platform android --profile production # Play Store AAB
 | Problem | Fix |
 |---|---|
 | `Invalid API key` in app | `.env` me anon key galat/truncated — Settings → API se dobara copy karo, app restart karo (`npx expo start -c`) |
-| OTP SMS nahi aa raha | Auth → Providers → Phone me provider config check karo; Twilio trial me sirf **verified numbers** par SMS jaata hai |
+| OTP SMS nahi aa raha | Abhi **Demo OTP** mode hai (code login screen par dikhta hai). Real SMS ke liye Indian gateway (MSG91/DLT) Supabase Auth → Phone me configure karo |
 | `new row violates row-level security policy` | 002_rls_policies.sql run nahi hua, ya user ka `profiles.role` set nahi hai — Table Editor → profiles check karo |
 | Checkout `429` / stock error | 003_atomic_rpcs.sql run hai? SQL Editor me `\df` — RPCs list honi chahiye |
 | Webhook signature failed | Razorpay webhook secret === `RAZORPAY_WEBHOOK_SECRET` supabase secret — same string honi chahiye |

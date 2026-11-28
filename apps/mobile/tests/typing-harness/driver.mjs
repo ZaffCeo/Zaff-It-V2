@@ -42,7 +42,7 @@ await (async () => {
   fsx2.mkdirSync('/home/user/Zaff-It-V2/apps/mobile/tests/typing-harness/.gen', { recursive: true });
   fsx2.writeFileSync('/home/user/Zaff-It-V2/apps/mobile/tests/typing-harness/.gen/HomeScreen.tsx', srcScreen.replace(/require\('\.\.\/\.\.\/\.\.\/assets\//g, "require('../../../assets/"));
   await esbuild.build({
-entryPoints: ['tests/typing-harness/entry.tsx'], absWorkingDir: '/home/user/Zaff-It-V2/apps/mobile',
+entryPoints: [process.env.LOGIN_TEST ? 'tests/typing-harness/login-entry.tsx' : 'tests/typing-harness/entry.tsx'], absWorkingDir: '/home/user/Zaff-It-V2/apps/mobile',
     bundle: true, platform: 'browser', format: 'iife',
     outfile: 'tests/typing-harness/bundle.js',
     define: { 'process.env.NODE_ENV': '"production"', 'global': 'window', '__DEV__': 'false' },
@@ -70,6 +70,28 @@ try {
   await import('/home/user/Zaff-It-V2/apps/mobile/tests/typing-harness/bundle.js');
 } catch (e) { console.log('IMPORT FAIL:', e && e.message); console.log(e && e.stack ? String(e.stack).slice(0, 900) : ''); }
 await new Promise((r) => setTimeout(r, 2500));
+if (process.env.LOGIN_TEST) {
+  const allBtns = [...document.querySelectorAll('div[role=button],button,[role=button]')];
+  const btn = allBtns.find((b) => /OTP bhejo|Send OTP|Get Started|Bhejo|Continue/i.test(b.textContent || ''));
+  const inputs = [...document.querySelectorAll('input')];
+  console.log('LOGIN INPUTS:', inputs.length, 'CTA:', btn ? btn.textContent.trim().slice(0,30) : 'none');
+  const setVal2 = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;
+  for (const ch of '9829012345') {
+    const inp = inputs[0];
+    if (!inp) break;
+    setVal2.call(inp, inp.value + ch);
+    inp.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  await new Promise((r) => setTimeout(r, 400));
+  if (btn) { btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })); }
+  await new Promise((r) => setTimeout(r, 900));
+  const body = document.body.textContent.replace(/\s+/g, ' ');
+  console.log('AFTER SEND:', body.slice(0, 320));
+  const demoMatch = body.match(/Demo OTP: (\d{6})/);
+  console.log('DEMO CODE VISIBLE:', demoMatch ? demoMatch[1] : 'NO');
+  process.exit(0);
+}
 console.log('ROOT CHILDREN:', document.getElementById('root').childNodes.length, 'HTMLLEN:', document.getElementById('root').innerHTML.length);
 console.log('TEXT SAMPLE:', document.getElementById('root').textContent.slice(0, 300).replace(/\s+/g,' '));
 const inputs = [...document.querySelectorAll('input')];
