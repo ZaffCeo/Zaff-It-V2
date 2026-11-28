@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -20,6 +21,8 @@ import {
   TOUCH_TARGETS,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { Ionicons } from '@expo/vector-icons';
+import { useAppStore } from '@/store/useAppStore';
 
 export type AdminLoadState = 'ready' | 'loading' | 'empty' | 'error';
 export type ExceptionSeverity = 'critical' | 'warning';
@@ -139,6 +142,7 @@ export const AdminOpsBoardScreen: React.FC<AdminOpsBoardScreenProps> = ({
   onToggleFeatureFlag,
   onRefresh,
 }) => {
+  const setRole = useAppStore((s) => s.setRole);
   const [loadState, setLoadState] = useState<AdminLoadState>(initialState);
   const [exceptions, setExceptions] = useState<OrderExceptionItem[]>(initialExceptions);
   const [severityFilter, setSeverityFilter] = useState<'all' | ExceptionSeverity>('all');
@@ -269,6 +273,16 @@ export const AdminOpsBoardScreen: React.FC<AdminOpsBoardScreenProps> = ({
         }
       >
         <View style={styles.topHeader}>
+          <Pressable
+            onPress={() => setRole('customer')}
+            accessibilityRole="button"
+            accessibilityLabel="Exit admin console, back to customer mode"
+            style={styles.exitConsoleBtn}
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={16} color={BRAND_COLORS.goldenYellow} />
+            <Text style={styles.exitConsoleText}>Customer Mode</Text>
+          </Pressable>
           <Text style={styles.eyebrow}>ADMIN CONTROL TOWER</Text>
           <Text style={styles.screenTitle}>Makrana Live Ops Board</Text>
         </View>
@@ -586,6 +600,22 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: SURFACE_DARK.background },
   container: { padding: SPACING.screenPadding, gap: SPACING.lg, paddingBottom: SPACING.xxl },
   topHeader: { gap: SPACING.xxs },
+  exitConsoleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: BRAND_COLORS.goldBorder,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    marginBottom: SPACING.xs,
+  },
+  exitConsoleText: {
+    ...TYPOGRAPHY.labelMd,
+    color: BRAND_COLORS.goldenYellow,
+  },
   eyebrow: { ...TYPOGRAPHY.captionMin, color: BRAND_COLORS.goldenYellow, letterSpacing: 0.8 },
   screenTitle: { ...TYPOGRAPHY.headlineLg, color: SURFACE_DARK.textPrimary },
   sectionCard: {

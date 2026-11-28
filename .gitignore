@@ -52,3 +52,4 @@ google_drive/
 
 # Heavy brand/reference media (redundant: originals in google_drive/ + apps/mobile/assets/)
 docs/brand-references/
+.wrangler/
