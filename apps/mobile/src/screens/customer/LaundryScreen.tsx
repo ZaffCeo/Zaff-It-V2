@@ -31,6 +31,7 @@ import {
   SURFACE_LIGHT,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '@/store/useAppStore';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
@@ -79,6 +80,7 @@ const CATEGORY_LABELS: Record<RateItem['category'], string> = {
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN')}`;
 
 export const LaundryScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const colorScheme = useAppStore((s) => s.colorScheme);
   const userId = useAppStore((s) => s.userId);
   const zone = useAppStore((s) => s.zone);
@@ -228,6 +230,15 @@ export const LaundryScreen: React.FC = () => {
         {/* Hero — golden brand band */}
         <LinearGradient colors={[...BRAND_GRADIENTS.goldWarm]} style={styles.hero}>
           <View style={styles.heroRow}>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              style={styles.heroBack}
+              hitSlop={8}
+            >
+              <Ionicons name="arrow-back" size={22} color={BRAND_COLORS.charcoalBlack} />
+            </Pressable>
             <Ionicons name="shirt-outline" size={34} color={BRAND_COLORS.charcoalBlack} />
             <View style={{ flex: 1, marginLeft: SPACING.sm }}>
               <Text style={styles.heroTitle}>Laundry — Wash + Press</Text>
@@ -413,6 +424,7 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   heroRow: { flexDirection: 'row', alignItems: 'center' },
+  heroBack: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 6, backgroundColor: 'rgba(18,20,22,0.10)' },
   heroTitle: { ...TYPOGRAPHY.headlineMd, color: BRAND_COLORS.charcoalBlack },
   heroSub: { ...TYPOGRAPHY.bodySm, color: BRAND_COLORS.charcoalBlack, opacity: 0.75, marginTop: 2 },
   heroPillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },

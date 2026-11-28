@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
+import { Pressable, ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View, } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   BRAND_COLORS,
@@ -76,6 +76,7 @@ export const RiderDeliveryOtpScreen: React.FC<RiderDeliveryOtpScreenProps> = ({
   onFinishHandover,
   onRetryLoad,
 }) => {
+  const navigation = useNavigation<any>();
   const [loadState, setLoadState] = useState<HandoverLoadState>(initialState);
   const [otpValue, setOtpValue] = useState('');
   const [codConfirmed, setCodConfirmed] = useState(false);
@@ -173,6 +174,15 @@ export const RiderDeliveryOtpScreen: React.FC<RiderDeliveryOtpScreenProps> = ({
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.headerCard}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Back to rider tasks"
+            style={styles.backChip}
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={18} color={BRAND_COLORS.charcoalBlack} />
+          </Pressable>
           <Text style={styles.eyebrow}>CUSTOMER HANDOVER</Text>
           <Text style={styles.orderCode}>Order #{order.orderCode}</Text>
           <Text style={styles.localityText}>{order.customerLocality}</Text>
@@ -315,6 +325,7 @@ export const RiderDeliveryOtpScreen: React.FC<RiderDeliveryOtpScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: SURFACE_DARK.background },
   container: { padding: SPACING.screenPadding, gap: SPACING.lg, paddingBottom: SPACING.xxl },
+  backChip: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(18,20,22,0.10)', marginRight: 8 },
   headerCard: {
     backgroundColor: SURFACE_DARK.surface1,
     borderRadius: RADII.lg,

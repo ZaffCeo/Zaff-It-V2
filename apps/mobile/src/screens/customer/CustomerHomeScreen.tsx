@@ -406,6 +406,18 @@ export const CustomerHomeScreen: React.FC = () => {
   const [voiceListening, setVoiceListening] = useState(false);
   const [phText, setPhText] = useState('');
   const micPulse = useRef(new Animated.Value(1)).current;
+  // Gold caret blink for the premium animated search overlay
+  const caretBlink = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(caretBlink, { toValue: 0, duration: 520, useNativeDriver: true }),
+        Animated.timing(caretBlink, { toValue: 1, duration: 520, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [caretBlink]);
 
   // Mic pulse while voice listens
   useEffect(() => {
@@ -1409,73 +1421,97 @@ export const CustomerHomeScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Dark Charcoal Search Pill */}
-      <View style={styles.searchPill}>
-        <Ionicons name="search" size={20} color={BRAND_COLORS.pureWhite} />
-        <TextInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={() =>
-            navigation.navigate('UniversalSearch', { initialQuery: searchQuery })
-          }
-          returnKeyType="search"
-          multiline={false}
-          blurOnSubmit={false}
-          selectionColor={BRAND_COLORS.goldenYellow}
-          placeholder={phText || "Need It? Zaff-It!"}
-          placeholderTextColor="#94A3B8"
-          style={[styles.searchInput, { color: surface.textPrimary }]}
-        />
-        {searchQuery.length > 0 ? (
-          <Pressable
-            onPress={() => {
-              setSearchQuery('');
-              loadCatalogue();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Clear search text"
-            style={styles.searchClearBtn}
-          >
-            <Ionicons name="close-circle" size={18} color="#94A3B8" />
-          </Pressable>
-        ) : (
-          <>
-            {/* Parchi system — WhatsApp text + photo OCR, inside the search bar */}
-            <Pressable
-              onPress={() => {
-                setParchiTab('text');
-                setParchiOpen(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Parchi ya WhatsApp list scanner"
-              style={styles.searchSideBtn}
-            >
-              <Ionicons name="document-text-outline" size={19} color={BRAND_COLORS.pureWhite} />
-            </Pressable>
-            <Animated.View style={{ opacity: micPulse }}>
-              <Pressable
-                onPress={() =>
-                  startVoice((t) => {
-                    setSearchQuery(t);
-                    navigation.navigate('UniversalSearch', { initialQuery: t });
-                  }, (m) => setHomeToast(m))
+      {/* ✦ Premium Search Command Bar — gradient gold ring, glass core,
+          animated typewriter overlay (zero overlap: overlay unmounts while typing) */}
+      <View style={styles.searchWrap}>
+        <LinearGradient
+          colors={['rgba(255,199,3,0.65)', 'rgba(255,199,3,0.12)', 'rgba(255,199,3,0.5)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.searchRing}
+        >
+          <View style={styles.searchPill} data-testid="search-pill">
+            <View style={styles.searchIconChip}>
+              <Ionicons name="search" size={17} color={BRAND_COLORS.charcoalBlack} />
+            </View>
+            <View style={styles.searchInputWrap}>
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={() =>
+                  navigation.navigate('UniversalSearch', { initialQuery: searchQuery })
                 }
+                returnKeyType="search"
+                multiline={false}
+                blurOnSubmit={false}
+                selectionColor={BRAND_COLORS.goldenYellow}
+                placeholder=""
+                style={[styles.searchInput, { color: surface.textPrimary }]}
+              />
+              {searchQuery.length === 0 && (
+                <View pointerEvents="none" style={styles.searchOverlay}>
+                  <Text numberOfLines={1} style={styles.searchOverlayText}>
+                    {phText || 'Need It? Zaff-It!'}
+                  </Text>
+                  <Animated.View style={[styles.searchCaret, { opacity: caretBlink }]} />
+                </View>
+              )}
+            </View>
+            {searchQuery.length > 0 ? (
+              <Pressable
+                onPress={() => {
+                  setSearchQuery('');
+                  loadCatalogue();
+                }}
                 accessibilityRole="button"
-                accessibilityLabel="Voice search — bolo aur search ho jayega"
-                style={[
-                  styles.searchSideBtn,
-                  voiceListening ? { backgroundColor: BRAND_COLORS.goldenYellow } : null,
-                ]}
+                accessibilityLabel="Clear search text"
+                style={styles.searchAction}
+                hitSlop={6}
               >
-                <Ionicons
-                  name="mic-outline"
-                  size={20}
-                  color={voiceListening ? BRAND_COLORS.charcoalBlack : BRAND_COLORS.pureWhite}
-                />
+                <Ionicons name="close-circle" size={20} color="rgba(248,249,250,0.8)" />
               </Pressable>
-            </Animated.View>
-          </>
-        )}
+            ) : (
+              <>
+                {/* Parchi — WhatsApp text + photo OCR, inside the command bar */}
+                <View style={styles.searchDivider} />
+                <Pressable
+                  onPress={() => {
+                    setParchiTab('text');
+                    setParchiOpen(true);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Parchi ya WhatsApp list scanner"
+                  style={styles.searchAction}
+                  hitSlop={6}
+                >
+                  <Ionicons name="document-text-outline" size={19} color={BRAND_COLORS.goldenYellow} />
+                </Pressable>
+                <Animated.View style={{ opacity: micPulse }}>
+                  <Pressable
+                    onPress={() =>
+                      startVoice((t) => {
+                        setSearchQuery(t);
+                        navigation.navigate('UniversalSearch', { initialQuery: t });
+                      }, (m) => setHomeToast(m))
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel="Voice search — bolo aur search ho jayega"
+                    style={[
+                      styles.searchAction,
+                      voiceListening ? styles.searchMicActive : null,
+                    ]}
+                  >
+                    <Ionicons
+                      name="mic-outline"
+                      size={20}
+                      color={voiceListening ? BRAND_COLORS.charcoalBlack : BRAND_COLORS.goldenYellow}
+                    />
+                  </Pressable>
+                </Animated.View>
+              </>
+            )}
+          </View>
+        </LinearGradient>
       </View>
 
       {/* ZAFFFIRST launch coupon (Stitch yellow banner) */}
@@ -2681,24 +2717,74 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.labelLg.fontSize,
     fontWeight: '700',
   },
+  searchWrap: {
+    marginHorizontal: SPACING.screenPadding,
+    borderRadius: RADII.full,
+    ...GLOW.goldSoft,
+  },
+  searchRing: { borderRadius: RADII.full, padding: 1.5 },
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
     backgroundColor: BRAND_COLORS.charcoalBlack,
-    borderRadius: RADII.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,199,3,0.32)',
-    paddingHorizontal: SPACING.md,
-    height: 50,
-    ...GLOW.goldSoft,
+    borderRadius: RADII.full,
+    height: 56,
+    paddingLeft: 9,
+    paddingRight: 7,
+    overflow: 'hidden',
   },
+  searchIconChip: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BRAND_COLORS.goldenYellow,
+    marginRight: 9,
+  },
+  searchInputWrap: { flex: 1, justifyContent: 'center' },
   searchInput: {
     flex: 1,
-    fontSize: TYPOGRAPHY.bodyMd.fontSize,
+    fontSize: 15,
     minHeight: TOUCH_TARGETS.minSize,
+    paddingVertical: 0,
   },
-  searchClearBtn: { padding: 4, marginLeft: 2 },
+  searchOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  searchOverlayText: {
+    color: 'rgba(148,163,184,0.95)',
+    fontSize: 15,
+    flexShrink: 1,
+  },
+  searchCaret: {
+    width: 2,
+    height: 18,
+    borderRadius: 1,
+    backgroundColor: BRAND_COLORS.goldenYellow,
+    marginLeft: 2,
+  },
+  searchAction: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchMicActive: { backgroundColor: BRAND_COLORS.goldenYellow },
+  searchDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    marginHorizontal: 3,
+  },
   askZaffyCard: {
     backgroundColor: '#FFF3C4',
     borderRadius: RADII.xl,
@@ -3600,10 +3686,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.bodySm.fontSize,
     lineHeight: TYPOGRAPHY.bodySm.lineHeight,
     marginTop: 2,
-  },
-  searchSideBtn: {
-    padding: 4,
-    borderRadius: RADII.sm,
   },
   liveEtaChip: {
     flexDirection: 'row',

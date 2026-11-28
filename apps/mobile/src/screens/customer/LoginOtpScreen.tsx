@@ -194,7 +194,15 @@ export const LoginOtpScreen: React.FC = () => {
       return;
     }
 
-    if (smsFallback || !isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && smsFallback) {
+      // Backend configured + SMS gateway down: NEVER mint a fake dev id here —
+      // it would flow into uuid-filtered PostgREST queries
+      // ("invalid input syntax for type uuid"). Fail loudly instead.
+      setErrorMsg('SMS gateway down — thodi der me dobara try karo.');
+      return;
+    }
+
+    if (!isSupabaseConfigured()) {
       // AUD-LOW-6: demo role switch allowed ONLY in development builds with
       // no backend configured — never when EXPO_PUBLIC_ENV is staging/production.
       let demoRole: UserRole | null = null;
@@ -211,7 +219,7 @@ export const LoginOtpScreen: React.FC = () => {
         }
       }
       const role: UserRole = demoRole ?? 'customer';
-      setSession(`dev-${role}-makrana`, normalizedPhone, role);
+      setSession(`dev-${role}-makrana`, normalizedPhone, role, { allowNonUuid: true });
       return;
     }
 

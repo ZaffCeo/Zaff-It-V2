@@ -26,6 +26,7 @@ import {
   SURFACE_LIGHT,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '@/store/useAppStore';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
@@ -39,6 +40,7 @@ type OpenRequest = {
 };
 
 export const ServiceJobsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const colorScheme = useAppStore((s) => s.colorScheme);
   const dark = colorScheme === 'dark';
   const surface = dark ? SURFACE_DARK : SURFACE_LIGHT;
@@ -126,10 +128,21 @@ export const ServiceJobsScreen: React.FC = () => {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: surface.background }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: surface.border }]}>
-        <Text style={[styles.title, { color: surface.textPrimary }]}>Provider Jobs</Text>
-        <Text style={[styles.subtitle, { color: surface.textMuted }]}>
-          Open jobs · quote bhejo, customer chunega
-        </Text>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.backBtn}
+          hitSlop={8}
+        >
+          <Ionicons name="arrow-back" size={22} color={surface.textPrimary} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, { color: surface.textPrimary }]}>Provider Jobs</Text>
+          <Text style={[styles.subtitle, { color: surface.textMuted }]}>
+            Open jobs · quote bhejo, customer chunega
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -254,6 +267,7 @@ export const ServiceJobsScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  backBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,199,3,0.10)', marginRight: 4 },
   header: { paddingHorizontal: SPACING.screenPadding, paddingTop: SPACING.sm, paddingBottom: SPACING.md, borderBottomWidth: 1 },
   title: { ...TYPOGRAPHY.headlineLg, fontWeight: '800' },
   subtitle: { ...TYPOGRAPHY.bodySm, marginTop: 2 },

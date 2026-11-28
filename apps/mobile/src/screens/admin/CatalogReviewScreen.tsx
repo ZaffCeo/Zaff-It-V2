@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
+import { Pressable, Alert,
   Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View, } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -51,6 +50,7 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 export const CatalogReviewScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const [rows, setRows] = useState<ReviewRow[]>([]);
   const [state, setState] = useState<LoadState>('loading');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -185,6 +185,14 @@ export const CatalogReviewScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.backBtn}
+        >
+          <Ionicons name="arrow-back" size={20} color={BRAND_COLORS.goldenYellow} />
+        </Pressable>
         <View style={styles.headerIcon}>
           <Ionicons name="shield-checkmark" size={20} color={BRAND_COLORS.goldenYellow} />
         </View>
@@ -229,6 +237,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
+  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 8, backgroundColor: 'rgba(255,199,3,0.10)' },
   headerIcon: {
     width: 40,
     height: 40,

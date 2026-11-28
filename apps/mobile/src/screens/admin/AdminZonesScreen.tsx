@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 /**
  * AdminZonesScreen — REAL geofence view (Wave-A).
  * Makrana service zones: radius, delivery fee, free threshold, service hours.
@@ -46,6 +47,7 @@ const fmtTime = (t: string | null): string => {
 };
 
 export const AdminZonesScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const colorScheme = useAppStore((s) => s.colorScheme);
   const mode: ChromeMode = colorScheme;
   const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
@@ -87,6 +89,7 @@ export const AdminZonesScreen: React.FC = () => {
         mode={mode}
         title="Geofence Zones"
         subtitle={`${zones.length} service zones · Makrana & expansion`}
+        onBack={() => navigation.goBack()}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
         {load === 'error' ? (

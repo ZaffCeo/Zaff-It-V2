@@ -33,6 +33,7 @@ import {
   SURFACE_LIGHT,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { useNavigation } from '@react-navigation/native';
 import { useAppStore } from '@/store/useAppStore';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
@@ -80,6 +81,7 @@ const rupees = (paise: number) => `₹${(paise / 100).toLocaleString('en-IN')}`;
 const QUOTE_WINDOW_MIN = 30; // doc §15: providers get 30 minutes to quote
 
 export const ServicesScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const colorScheme = useAppStore((s) => s.colorScheme);
   const userId = useAppStore((s) => s.userId);
   const zone = useAppStore((s) => s.zone);
@@ -275,7 +277,16 @@ export const ServicesScreen: React.FC = () => {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: surface.border }]}>
         <View style={styles.headerRow}>
-          <View>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={styles.backBtn}
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={22} color={surface.textPrimary} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: surface.textPrimary }]}>
               Zaff Service
             </Text>
@@ -629,7 +640,8 @@ export const ServicesScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: { paddingHorizontal: SPACING.screenPadding, paddingTop: SPACING.sm, paddingBottom: SPACING.md, borderBottomWidth: 1 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  backBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,199,3,0.10)' },
   title: { ...TYPOGRAPHY.headlineLg, fontWeight: '800' },
   subtitle: { ...TYPOGRAPHY.bodySm, marginTop: 2 },
   postBtn: { borderRadius: RADII.full, overflow: 'hidden' },

@@ -3,6 +3,7 @@
  * Merchant's own stores: open/closed toggle (owner UPDATE policy),
  * timings, prep time, min order, zone, address.
  */
+import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -42,7 +43,8 @@ type StoreRow = {
 type ZoneRow = { id: string; code: string; name: string | null };
 
 export const MerchantStoreScreen: React.FC = () => {
-  const colorScheme = useAppStore((s) => s.colorScheme);
+
+  const navigation = useNavigation<any>();  const colorScheme = useAppStore((s) => s.colorScheme);
   const setRole = useAppStore((s) => s.setRole);
   const mode: ChromeMode = colorScheme;
   const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
@@ -138,6 +140,7 @@ export const MerchantStoreScreen: React.FC = () => {
       <ScreenHeader
         mode={mode}
         title="My Stores"
+        onBack={() => navigation.goBack()}
         subtitle="Timings, min order & open status"
         right={
           <Pressable
