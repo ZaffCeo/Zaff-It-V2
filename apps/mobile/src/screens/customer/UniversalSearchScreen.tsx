@@ -316,7 +316,7 @@ export const UniversalSearchScreen: React.FC = () => {
             { backgroundColor: surface.surface1, borderColor: surface.border },
           ]}
         >
-          <Ionicons name="search" size={18} color={surface.textSecondary} />
+          <Ionicons name="search" size={18} color={BRAND_COLORS.goldenYellow} />
           <TextInput
             ref={inputRef}
             value={query}
@@ -325,9 +325,9 @@ export const UniversalSearchScreen: React.FC = () => {
             autoFocus
             selectionColor={BRAND_COLORS.goldenYellow}
             placeholder="Need-It? Zaff-It. Search anything..."
-            placeholderTextColor={surface.textMuted}
+            placeholderTextColor={BRAND_COLORS.goldenYellow}
             returnKeyType="search"
-            style={[styles.searchInput, { color: surface.textPrimary }]}
+            style={[styles.searchInput, { color: BRAND_COLORS.goldenYellow }]}
           />
           {query.length > 0 && (
             <Pressable
@@ -339,7 +339,7 @@ export const UniversalSearchScreen: React.FC = () => {
               accessibilityRole="button"
               accessibilityLabel="Clear search"
             >
-              <Ionicons name="close-circle" size={18} color={surface.textMuted} />
+              <Ionicons name="close-circle" size={18} color={BRAND_COLORS.goldenYellow} />
             </Pressable>
           )}
           <Pressable
@@ -356,7 +356,7 @@ export const UniversalSearchScreen: React.FC = () => {
             <Ionicons
               name="mic-outline"
               size={18}
-              color={voiceListening ? BRAND_COLORS.goldenYellow : surface.textMuted}
+              color={BRAND_COLORS.goldenYellow}
             />
           </Pressable>
         </View>
@@ -622,9 +622,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: 10,
     borderRadius: RADII.full,
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF', // white bar, golden border, yellow text
+    borderWidth: 2,
+    borderColor: BRAND_COLORS.goldenYellow,
   },
-  searchInput: { flex: 1, fontSize: TYPOGRAPHY.bodyMd.fontSize, paddingVertical: 0 },
+  searchInput: { flex: 1, fontSize: TYPOGRAPHY.bodyMd.fontSize, fontWeight: '700', paddingVertical: 0 },
   scrollContent: { padding: SPACING.screenPadding, paddingBottom: SPACING.xxl },
   sectionBlock: { marginBottom: SPACING.lg },
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

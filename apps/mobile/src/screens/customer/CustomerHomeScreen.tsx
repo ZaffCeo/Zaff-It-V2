@@ -1453,13 +1453,7 @@ export const CustomerHomeScreen: React.FC = () => {
       {/* ✦ Premium Search Command Bar — gradient gold ring, glass core,
           animated typewriter overlay (zero overlap: overlay unmounts while typing) */}
       <View style={styles.searchWrap}>
-        <LinearGradient
-          colors={['rgba(255,199,3,0.65)', 'rgba(255,199,3,0.12)', 'rgba(255,199,3,0.5)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.searchRing}
-        >
-          <View style={styles.searchPill} data-testid="search-pill">
+        <View style={styles.searchPill} data-testid="search-pill">
             <View style={styles.searchIconChip}>
               <Ionicons name="search" size={17} color={BRAND_COLORS.charcoalBlack} />
             </View>
@@ -1477,7 +1471,7 @@ export const CustomerHomeScreen: React.FC = () => {
                 blurOnSubmit={false}
                 selectionColor={BRAND_COLORS.goldenYellow}
                 placeholder=""
-                style={[styles.searchInput, { color: surface.textPrimary }]}
+                style={[styles.searchInput, { color: BRAND_COLORS.goldenYellow }]}
               />
               {!searchFocused && searchQuery.length === 0 && <SearchTypewriterOverlay />}
             </View>
@@ -1492,7 +1486,7 @@ export const CustomerHomeScreen: React.FC = () => {
                 style={styles.searchAction}
                 hitSlop={6}
               >
-                <Ionicons name="close-circle" size={20} color="rgba(248,249,250,0.8)" />
+                <Ionicons name="close-circle" size={20} color={BRAND_COLORS.goldenYellow} />
               </Pressable>
             ) : (
               <>
@@ -1535,7 +1529,6 @@ export const CustomerHomeScreen: React.FC = () => {
               </>
             )}
           </View>
-        </LinearGradient>
       </View>
 
       {/* ZAFFFIRST launch coupon (Stitch yellow banner) */}
@@ -2742,17 +2735,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   searchWrap: {
-    marginHorizontal: SPACING.screenPadding,
+    // Full-bleed: bar spans the whole screen width (screen yaha se waha)
+    marginHorizontal: 0,
     borderRadius: RADII.full,
     ...GLOW.goldSoft,
   },
-  searchRing: { borderRadius: RADII.full, padding: 1.5 },
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BRAND_COLORS.charcoalBlack,
-    borderRadius: 18,
-    height: 64, // Blinkit-style tall command bar
+    backgroundColor: '#FFFFFF', // white bar — typed text hamesha visible
+    borderWidth: 2.5,
+    borderColor: BRAND_COLORS.goldenYellow, // golden border (bas gold)
+    borderRadius: RADII.full,
+    height: 68, // Blinkit-style tall command bar
     paddingLeft: 10,
     paddingRight: 8,
     overflow: 'hidden',
@@ -2769,7 +2764,8 @@ const styles = StyleSheet.create({
   searchInputWrap: { flex: 1, justifyContent: 'center' },
   searchInput: {
     flex: 1,
-    fontSize: 16.5,
+    fontSize: 17,
+    fontWeight: '800',
     minHeight: TOUCH_TARGETS.minSize,
     paddingVertical: 0,
   },
@@ -2784,8 +2780,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   searchOverlayText: {
-    color: 'rgba(148,163,184,0.95)',
-    fontSize: 16.5,
+    color: BRAND_COLORS.goldenYellow, // animated placeholder yellow per theme
+    fontSize: 17,
+    fontWeight: '800',
     flexShrink: 1,
   },
   searchCaret: {
@@ -2806,7 +2803,7 @@ const styles = StyleSheet.create({
   searchDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(217,164,3,0.35)', // gold-tinted divider on white
     marginHorizontal: 3,
   },
   askZaffyCard: {
