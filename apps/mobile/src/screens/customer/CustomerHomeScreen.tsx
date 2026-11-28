@@ -131,6 +131,78 @@ const SEARCH_PLACEHOLDERS = [
   '🎤 Mic dabao — bolo aur search ho jayega',
 ];
 
+/** Module-level continuity: remount pe wahi phrase se resume hota hai. */
+let typewriterPhraseIdx = 0;
+
+/**
+ * TypewriterOverlay — self-contained animated placeholder.
+ *
+ * CRITICAL: apna phText state KHUD rakhta hai — isse har 65ms ka setPhText
+ * SIRF ye chhota component re-render karta hai. Pehle ye state screen-level
+ * thi => poora home screen (FlashList, banners) har 65ms re-render hota tha
+ * => "sab refresh ho raha hai" + typing laggy. Ab zero parent re-renders.
+ */
+const SearchTypewriterOverlay: React.FC = () => {
+  const [phText, setPhText] = useState('');
+  const caretBlink = useRef(new Animated.Value(1)).current;
+
+  // Gold caret blink
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(caretBlink, { toValue: 0, duration: 520, useNativeDriver: true }),
+        Animated.timing(caretBlink, { toValue: 1, duration: 520, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [caretBlink]);
+
+  // Type -> hold -> delete -> next phrase
+  useEffect(() => {
+    let phrase = typewriterPhraseIdx;
+    let pos = 0;
+    let dir: 1 | -1 = 1;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      if (!alive) return;
+      const full = SEARCH_PLACEHOLDERS[phrase];
+      pos += dir;
+      if (dir === 1 && pos > full.length) {
+        dir = -1;
+        pos = full.length;
+        timer = setTimeout(tick, 1400);
+        return;
+      }
+      if (dir === -1 && pos < 0) {
+        dir = 1;
+        pos = 0;
+        phrase = (phrase + 1) % SEARCH_PLACEHOLDERS.length;
+        typewriterPhraseIdx = phrase;
+        timer = setTimeout(tick, 320);
+        return;
+      }
+      setPhText(full.slice(0, pos));
+      timer = setTimeout(tick, dir === 1 ? 65 : 28);
+    };
+    timer = setTimeout(tick, 300);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  return (
+    <View pointerEvents="none" style={styles.searchOverlay}>
+      <Text numberOfLines={1} style={styles.searchOverlayText}>
+        {phText || 'Need It? Zaff-It!'}
+      </Text>
+      <Animated.View style={[styles.searchCaret, { opacity: caretBlink }]} />
+    </View>
+  );
+};
+
 interface StoreInfo {
   id: string;
   name: string;
@@ -404,20 +476,9 @@ export const CustomerHomeScreen: React.FC = () => {
   const [parchiTab, setParchiTab] = useState<'text' | 'photo'>('text');
   const [ocrBusy, setOcrBusy] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
-  const [phText, setPhText] = useState('');
   const micPulse = useRef(new Animated.Value(1)).current;
-  // Gold caret blink for the premium animated search overlay
-  const caretBlink = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(caretBlink, { toValue: 0, duration: 520, useNativeDriver: true }),
-        Animated.timing(caretBlink, { toValue: 1, duration: 520, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [caretBlink]);
+  // Search focus (overlay sirf blur + empty state me dikhta hai)
+  const [searchFocused, setSearchFocused] = useState(false);
 
   // Mic pulse while voice listens
   useEffect(() => {
@@ -434,38 +495,6 @@ export const CustomerHomeScreen: React.FC = () => {
     micPulse.setValue(1);
   }, [voiceListening, micPulse]);
 
-  // Typewriter placeholder animation — types, holds, deletes, next phrase
-  useEffect(() => {
-    let phrase = 0;
-    let pos = 0;
-    let dir: 1 | -1 = 1;
-    let alive = true;
-    const tick = () => {
-      if (!alive) return;
-      const full = SEARCH_PLACEHOLDERS[phrase];
-      pos += dir;
-      if (dir === 1 && pos > full.length) {
-        dir = -1;
-        pos = full.length;
-        timer = setTimeout(tick, 1400);
-        return;
-      }
-      if (dir === -1 && pos < 0) {
-        dir = 1;
-        pos = 0;
-        phrase = (phrase + 1) % SEARCH_PLACEHOLDERS.length;
-        timer = setTimeout(tick, 320);
-        return;
-      }
-      setPhText(full.slice(0, pos));
-      timer = setTimeout(tick, dir === 1 ? 65 : 28);
-    };
-    let timer = setTimeout(tick, 300);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, []);
   const [nearbyStores, setNearbyStores] = useState<StoreInfo[]>(FALLBACK_STORES);
   // W4c/Zaff Ads Phase 1: admin-approved, paid-or-free sponsored placements (always labelled).
   const [sponsoredStores, setSponsoredStores] = useState<SponsoredStoreAd[]>([]);
@@ -1438,6 +1467,8 @@ export const CustomerHomeScreen: React.FC = () => {
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 onSubmitEditing={() =>
                   navigation.navigate('UniversalSearch', { initialQuery: searchQuery })
                 }
@@ -1448,14 +1479,7 @@ export const CustomerHomeScreen: React.FC = () => {
                 placeholder=""
                 style={[styles.searchInput, { color: surface.textPrimary }]}
               />
-              {searchQuery.length === 0 && (
-                <View pointerEvents="none" style={styles.searchOverlay}>
-                  <Text numberOfLines={1} style={styles.searchOverlayText}>
-                    {phText || 'Need It? Zaff-It!'}
-                  </Text>
-                  <Animated.View style={[styles.searchCaret, { opacity: caretBlink }]} />
-                </View>
-              )}
+              {!searchFocused && searchQuery.length === 0 && <SearchTypewriterOverlay />}
             </View>
             {searchQuery.length > 0 ? (
               <Pressable
@@ -2727,25 +2751,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: BRAND_COLORS.charcoalBlack,
-    borderRadius: RADII.full,
-    height: 56,
-    paddingLeft: 9,
-    paddingRight: 7,
+    borderRadius: 18,
+    height: 64, // Blinkit-style tall command bar
+    paddingLeft: 10,
+    paddingRight: 8,
     overflow: 'hidden',
   },
   searchIconChip: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: BRAND_COLORS.goldenYellow,
-    marginRight: 9,
+    marginRight: 10,
   },
   searchInputWrap: { flex: 1, justifyContent: 'center' },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16.5,
     minHeight: TOUCH_TARGETS.minSize,
     paddingVertical: 0,
   },
@@ -2761,27 +2785,27 @@ const styles = StyleSheet.create({
   },
   searchOverlayText: {
     color: 'rgba(148,163,184,0.95)',
-    fontSize: 15,
+    fontSize: 16.5,
     flexShrink: 1,
   },
   searchCaret: {
     width: 2,
-    height: 18,
+    height: 22,
     borderRadius: 1,
     backgroundColor: BRAND_COLORS.goldenYellow,
     marginLeft: 2,
   },
   searchAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchMicActive: { backgroundColor: BRAND_COLORS.goldenYellow },
   searchDivider: {
     width: 1,
-    height: 22,
+    height: 28,
     backgroundColor: 'rgba(255,255,255,0.14)',
     marginHorizontal: 3,
   },
