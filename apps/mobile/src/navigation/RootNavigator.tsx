@@ -26,6 +26,8 @@ import { InviteScreen } from '@/screens/customer/InviteScreen';
 import { ProScreen } from '@/screens/customer/ProScreen';
 import { ZaffIdScreen } from '@/screens/customer/ZaffIdScreen';
 import { LaundryScreen } from '@/screens/customer/LaundryScreen';
+import { ServicesScreen } from '@/screens/customer/ServicesScreen';
+import { ServiceJobsScreen } from '@/screens/customer/ServiceJobsScreen';
 import { MerchantRegistrationScreen } from '@/screens/customer/MerchantRegistrationScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
@@ -68,6 +70,8 @@ export type CustomerStackParamList = {
   Pro: undefined;
   ZaffId: undefined;
   Laundry: undefined;
+  Services: undefined;
+  ServiceJobs: undefined;
   MerchantRegister: undefined;
 };
 
@@ -178,6 +182,8 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="Pro" component={ProScreen} />
     <CustomerStackNav.Screen name="ZaffId" component={ZaffIdScreen} />
     <CustomerStackNav.Screen name="Laundry" component={LaundryScreen} />
+    <CustomerStackNav.Screen name="Services" component={ServicesScreen} />
+    <CustomerStackNav.Screen name="ServiceJobs" component={ServiceJobsScreen} />
     <CustomerStackNav.Screen name="MerchantRegister" component={MerchantRegistrationScreen} />
   </CustomerStackNav.Navigator>
 );

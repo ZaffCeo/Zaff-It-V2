@@ -2006,12 +2006,10 @@ export const CustomerHomeScreen: React.FC = () => {
         <ComingSoonCard
           mode={colorScheme}
           icon="build-outline"
-          title="Home Services"
+          title="Zaff Service"
           subtitle="Verified pros se quotes"
-          note="Repair · Cleaning · Appliance"
-          onPress={() =>
-            setHomeToast('Home services — launch jaldi ho raha hai!')
-          }
+          note="LIVE · Repair · Cleaning · Appliance"
+          onPress={() => navigation.navigate('Services')}
         />
       </ScrollView>
 

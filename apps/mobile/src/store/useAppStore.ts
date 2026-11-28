@@ -6,6 +6,19 @@ import type { AppLanguage } from '@/i18n/translations';
 
 export type UserRole = 'customer' | 'merchant' | 'rider' | 'admin';
 
+/**
+ * UUID guard: Postgres uuid columns reject any non-uuid string. Older dev
+ * builds persisted placeholder ids like "dev-customer-makrana" under the same
+ * storage key; hydrating those into today's store makes PostgREST fail with
+ * `invalid input syntax for type uuid`. Sanitize on rehydrate AND on set.
+ */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isUuid = (v: unknown): v is string =>
+  typeof v === 'string' && UUID_RE.test(v);
+/** Null out any persisted value that is non-null and not a uuid. */
+const uuidOrNull = (v: unknown): string | null => (isUuid(v) ? v : null);
+
 export type OrderStatus =
   | 'pending'
   | 'accepted'
@@ -190,7 +203,8 @@ export const useAppStore = create<AppState>()(
 
       setSession: (userId, phone, role) =>
         set((state) => ({
-          userId,
+          // Never let a non-uuid session id leak into uuid-filtered queries.
+          userId: userId === null ? null : uuidOrNull(userId) ?? null,
           phone,
           role: role ?? state.role,
         })),
@@ -306,6 +320,20 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'zaff-it-app-storage-v1',
+      version: 2, // v2: purge pre-V2 dev ids (e.g. "dev-customer-makrana") on hydrate
+      migrate: (persisted) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        return {
+          ...p,
+          // Session ids are intentionally not persisted in v2 — stale or fake
+          // ids from older builds must never reach uuid-filtered queries.
+          userId: null,
+          phone: null,
+          activeOrderId: uuidOrNull(p.activeOrderId),
+          selectedAddressId: uuidOrNull(p.selectedAddressId),
+          cartStoreId: uuidOrNull(p.cartStoreId),
+        };
+      },
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         language: state.language,
