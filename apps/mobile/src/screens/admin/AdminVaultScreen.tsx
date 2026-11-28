@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -40,6 +41,7 @@ type DepositRow = {
 type RiderMeta = { id: string; phone: string | null; full_name: string | null };
 
 export const AdminVaultScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const colorScheme = useAppStore((s) => s.colorScheme);
   const mode: ChromeMode = colorScheme;
   const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
@@ -125,7 +127,7 @@ export const AdminVaultScreen: React.FC = () => {
         mode={mode}
         title="COD Vault"
         subtitle="Rider cash deposits — verify & reconcile"
-        onBack={undefined}
+        onBack={navigation.goBack}
         right={
           <View style={styles.vaultBadge}>
             <Ionicons name="server" size={16} color={BRAND_COLORS.charcoalBlack} />

@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
+import { Pressable, ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-} from 'react-native';
+  View, } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   BRAND_COLORS,
@@ -225,6 +225,7 @@ export const RiderShiftKycScreen: React.FC<RiderShiftKycScreenProps> = ({
   onGoOnline,
   onRefresh,
 }) => {
+  const navigation = useNavigation<any>();
   const [loadState, setLoadState] = useState<KycLoadState>(initialState);
   const [profile, setProfile] = useState<RiderKycProfile>(initialProfile);
   const [refreshing, setRefreshing] = useState(false);
@@ -354,6 +355,15 @@ export const RiderShiftKycScreen: React.FC<RiderShiftKycScreenProps> = ({
       >
         {/* Rider Identity Header */}
         <View style={styles.headerCard}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back to rider duty"
+            style={styles.backChip}
+            hitSlop={8}
+          >
+            <Ionicons name="arrow-back" size={18} color={BRAND_COLORS.charcoalBlack} />
+          </Pressable>
           <Text style={styles.eyebrow}>RIDER SHIFT & KYC GATE</Text>
           <Text style={styles.riderName}>{profile.riderName}</Text>
           <Text style={styles.riderMeta}>
@@ -539,6 +549,7 @@ export const RiderShiftKycScreen: React.FC<RiderShiftKycScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: SURFACE_DARK.background },
   container: { padding: SPACING.screenPadding, gap: SPACING.lg, paddingBottom: SPACING.xxl },
+  backChip: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(18,20,22,0.10)', marginRight: 8 },
   headerCard: {
     backgroundColor: SURFACE_DARK.surface1,
     borderRadius: RADII.lg,

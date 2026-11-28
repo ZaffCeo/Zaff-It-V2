@@ -73,7 +73,7 @@ await new Promise((r) => setTimeout(r, 2500));
 console.log('ROOT CHILDREN:', document.getElementById('root').childNodes.length, 'HTMLLEN:', document.getElementById('root').innerHTML.length);
 console.log('TEXT SAMPLE:', document.getElementById('root').textContent.slice(0, 300).replace(/\s+/g,' '));
 const inputs = [...document.querySelectorAll('input')];
-const search = inputs.find((el) => (el.getAttribute('placeholder') || '').includes('Zaff-It') || (el.getAttribute('placeholder') || '') !== '');
+const search = inputs.find((el) => el.closest('[data-testid=\'search-pill\']')) || inputs[0];
 console.log('INPUTS:', inputs.length);
 if (!search) { console.log('RESULT: FAIL no-input'); process.exit(1); }
 const setVal = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;

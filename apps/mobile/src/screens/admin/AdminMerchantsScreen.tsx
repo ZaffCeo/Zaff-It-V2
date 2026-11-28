@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 /**
  * AdminMerchantsScreen — REAL merchant governance list (Wave-A).
  * Merchants + their stores, KYC status, commission, active state.
@@ -108,6 +109,7 @@ export const AdminMerchantsScreen: React.FC = () => {
     }
   };
 
+  const navigation = useNavigation<any>();
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: surface.background }]}
@@ -117,6 +119,7 @@ export const AdminMerchantsScreen: React.FC = () => {
         mode={mode}
         title="Merchants"
         subtitle={`${merchants.length} registered · ${stores.length} stores`}
+        onBack={() => navigation.goBack()}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
         {load === 'error' ? (

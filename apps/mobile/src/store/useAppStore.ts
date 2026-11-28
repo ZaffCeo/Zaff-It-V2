@@ -86,7 +86,12 @@ export interface AppState {
   activeOrderId: string | null;
 
   // Actions
-  setSession: (userId: string | null, phone: string | null, role?: UserRole) => void;
+  setSession: (
+    userId: string | null,
+    phone: string | null,
+    role?: UserRole,
+    opts?: { allowNonUuid?: boolean },
+  ) => void;
   setRole: (role: UserRole) => void;
   setLanguage: (language: AppLanguage) => void;
   setColorScheme: (mode: ColorSchemeMode) => void;
@@ -201,10 +206,15 @@ export const useAppStore = create<AppState>()(
       activeOrderId: null,
       parchiRequestTick: 0,
 
-      setSession: (userId, phone, role) =>
+      setSession: (userId, phone, role, opts) =>
         set((state) => ({
-          // Never let a non-uuid session id leak into uuid-filtered queries.
-          userId: userId === null ? null : uuidOrNull(userId) ?? null,
+          // Never let a non-uuid session id leak into uuid-filtered queries —
+          // except an explicit dev-mode session (backend NOT configured, so no
+          // uuid query can ever run). Real logins always pass auth.uuid().
+          userId:
+            userId === null
+              ? null
+              : uuidOrNull(userId) ?? (opts?.allowNonUuid === true ? userId : null),
           phone,
           role: role ?? state.role,
         })),
