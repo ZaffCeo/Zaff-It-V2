@@ -43,6 +43,7 @@ type ZoneRow = { id: string; code: string; name: string | null };
 
 export const MerchantStoreScreen: React.FC = () => {
   const colorScheme = useAppStore((s) => s.colorScheme);
+  const setRole = useAppStore((s) => s.setRole);
   const mode: ChromeMode = colorScheme;
   const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
 
@@ -153,6 +154,27 @@ export const MerchantStoreScreen: React.FC = () => {
         }
       />
       <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Customer-mode switch — same account, 1-tap (persona workspace) */}
+        <Pressable
+          onPress={() => setRole('customer')}
+          accessibilityRole="button"
+          accessibilityLabel="Switch to customer shopping mode"
+          style={[
+            styles.customerSwitchCard,
+            { backgroundColor: surface.surface2, borderColor: BRAND_COLORS.goldBorder },
+          ]}
+        >
+          <Ionicons name="cart-outline" size={18} color={BRAND_COLORS.goldenYellow} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.customerSwitchTitle, { color: surface.textPrimary }]}>
+              Shopping mode
+            </Text>
+            <Text style={[styles.customerSwitchSub, { color: surface.textSecondary }]}>
+              Customer mode me switch karke apne liye order karo
+            </Text>
+          </View>
+          <Ionicons name="swap-horizontal" size={18} color={BRAND_COLORS.goldenYellow} />
+        </Pressable>
         {note !== null ? (
           <View
             style={[
@@ -357,5 +379,21 @@ const styles = StyleSheet.create({
   },
   factText: {
     ...TYPOGRAPHY.captionMin,
+  },
+  customerSwitchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderRadius: RADII.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  customerSwitchTitle: {
+    ...TYPOGRAPHY.labelLg,
+  },
+  customerSwitchSub: {
+    ...TYPOGRAPHY.bodySm,
+    marginTop: 2,
   },
 });

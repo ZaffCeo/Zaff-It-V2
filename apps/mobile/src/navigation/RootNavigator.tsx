@@ -26,6 +26,7 @@ import { InviteScreen } from '@/screens/customer/InviteScreen';
 import { ProScreen } from '@/screens/customer/ProScreen';
 import { ZaffIdScreen } from '@/screens/customer/ZaffIdScreen';
 import { LaundryScreen } from '@/screens/customer/LaundryScreen';
+import { MerchantRegistrationScreen } from '@/screens/customer/MerchantRegistrationScreen';
 import { MerchantDashboardScreen } from '@/screens/merchant/MerchantDashboardScreen';
 import { MerchantInventoryScreen } from '@/screens/merchant/MerchantInventoryScreen';
 import { MerchantOrdersScreen } from '@/screens/merchant/MerchantOrdersScreen';
@@ -67,6 +68,7 @@ export type CustomerStackParamList = {
   Pro: undefined;
   ZaffId: undefined;
   Laundry: undefined;
+  MerchantRegister: undefined;
 };
 
 export type CustomerTabParamList = {
@@ -176,6 +178,7 @@ const CustomerStack: React.FC = () => (
     <CustomerStackNav.Screen name="Pro" component={ProScreen} />
     <CustomerStackNav.Screen name="ZaffId" component={ZaffIdScreen} />
     <CustomerStackNav.Screen name="Laundry" component={LaundryScreen} />
+    <CustomerStackNav.Screen name="MerchantRegister" component={MerchantRegistrationScreen} />
   </CustomerStackNav.Navigator>
 );
 

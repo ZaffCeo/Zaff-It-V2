@@ -23,6 +23,7 @@ import type { CustomerStackParamList } from '@/navigation/RootNavigator';
 import { Ionicons } from '@expo/vector-icons';
 import {
   BRAND_COLORS,
+  BRAND_GRADIENTS,
   RADII,
   SPACING,
   STATUS_COLORS,
@@ -31,7 +32,8 @@ import {
   TOUCH_TARGETS,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
-import { useAppStore, type UserRole } from '@/store/useAppStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAppStore } from '@/store/useAppStore';
 import {
   getTranslation,
   LANGUAGE_LABELS,
@@ -52,13 +54,6 @@ import {
 } from '@/components/Chrome';
 
 const LANGUAGES: AppLanguage[] = ['en', 'hi', 'hi-Latn'];
-const ROLES: { id: UserRole; label: string }[] = [
-  { id: 'customer', label: 'Customer' },
-  { id: 'merchant', label: 'Merchant' },
-  { id: 'rider', label: 'Rider' },
-  { id: 'admin', label: 'Admin' },
-];
-
 type ProfileData = {
   fullName: string | null;
   avatarUrl: string | null;
@@ -85,6 +80,16 @@ export const AccountComplianceScreen: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteDone, setDeleteDone] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Persona workspace — earned roles only (037: my_roles + register_as_merchant)
+  const [myRoles, setMyRoles] = useState<string[]>([]);
+  const [myMerchantName, setMyMerchantName] = useState<string | null>(null);
+  const [myStore, setMyStore] = useState<{
+    name: string;
+    isOpen: boolean;
+    opensAt: string;
+    closesAt: string;
+  } | null>(null);
 
   // Profile 2.0 live data
   const [profile, setProfile] = useState<ProfileData>({
@@ -172,6 +177,40 @@ export const AccountComplianceScreen: React.FC = () => {
   useEffect(() => {
     void loadProfileData();
   }, [loadProfileData]);
+
+  // Persona workspace: earned roles + merchant persona (037 RPCs)
+  useEffect(() => {
+    if (!isSupabaseConfigured() || userId === null) return;
+    void (async () => {
+      const { data: rolesData } = await supabase.rpc('my_roles');
+      if (Array.isArray(rolesData)) {
+        setMyRoles(rolesData.map((r) => String((r as Record<string, unknown>).role ?? '')));
+      }
+      const { data: mRows } = await supabase
+        .from('merchants')
+        .select('id, business_name')
+        .eq('owner_user_id', userId)
+        .eq('is_active', true)
+        .limit(1);
+      if (mRows && mRows.length > 0) {
+        setMyMerchantName(String(mRows[0].business_name ?? 'Merchant'));
+        const { data: sRows } = await supabase
+          .from('stores')
+          .select('name, is_open, opens_at, closes_at')
+          .eq('merchant_id', mRows[0].id)
+          .eq('is_active', true)
+          .limit(1);
+        if (sRows && sRows.length > 0) {
+          setMyStore({
+            name: String(sRows[0].name ?? ''),
+            isOpen: Boolean(sRows[0].is_open),
+            opensAt: String(sRows[0].opens_at ?? '').slice(0, 5),
+            closesAt: String(sRows[0].closes_at ?? '').slice(0, 5),
+          });
+        }
+      }
+    })();
+  }, [userId]);
 
   const handleLanguageChange = async (nextLang: AppLanguage) => {
     setLanguage(nextLang);
@@ -660,49 +699,219 @@ export const AccountComplianceScreen: React.FC = () => {
           </View>
         </SectionCard>
 
-        {/* ── Workspace (QA role switch) ───────────────────────────── */}
+        {/* ── Persona workspace (earned roles only) ────────────────── */}
         <SectionCard mode={mode} style={styles.groupCard}>
           <Text style={[styles.groupTitle, { color: surface.textMuted }]}>
-            WORKSPACE
+            PERSONA WORKSPACE
           </Text>
-          <View style={styles.roleGrid}>
-            {ROLES.map((item) => {
-              const active = role === item.id;
-              return (
+
+          {/* Customer persona — always present */}
+          <View
+            style={[
+              styles.personaCard,
+              {
+                backgroundColor:
+                  role === 'customer' ? BRAND_COLORS.electricGreenSurface : surface.surface2,
+                borderColor: role === 'customer' ? BRAND_COLORS.electricGreen : surface.borderStrong,
+              },
+            ]}
+          >
+            <View style={styles.personaTopRow}>
+              <View style={[styles.personaIconWrap, { backgroundColor: surface.surface3 }]}>
+                <Ionicons name="home-outline" size={18} color={surface.textPrimary} />
+              </View>
+              <View style={styles.personaTitleCol}>
+                <Text style={[styles.personaTitle, { color: surface.textPrimary }]}>
+                  Customer / Personal Mode
+                </Text>
+                {role === 'customer' && (
+                  <View style={[styles.activePill, { backgroundColor: BRAND_COLORS.electricGreen }]}>
+                    <Ionicons name="checkmark" size={11} color={BRAND_COLORS.pureWhite} />
+                    <Text style={styles.activePillText}>CURRENT ACTIVE</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <Text style={[styles.personaDesc, { color: surface.textSecondary }]}>
+              Ghar, daily groceries &amp; errands — Makrana ke local stores se 10-minute
+              instant delivery, doorstep riders aur Request-It errands.
+            </Text>
+          </View>
+
+          {/* Merchant persona — only if earned via registration */}
+          {myRoles.includes('merchant') && (
+            <View
+              style={[
+                styles.personaCard,
+                {
+                  backgroundColor:
+                    role === 'merchant' ? BRAND_COLORS.goldSoft : surface.surface2,
+                  borderColor: role === 'merchant' ? BRAND_COLORS.goldBorder : surface.borderStrong,
+                },
+              ]}
+            >
+              <View style={styles.personaTopRow}>
+                <View style={[styles.personaIconWrap, { backgroundColor: surface.surface3 }]}>
+                  <Ionicons name="storefront-outline" size={18} color={BRAND_COLORS.goldenYellow} />
+                </View>
+                <View style={styles.personaTitleCol}>
+                  <Text style={[styles.personaTitle, { color: surface.textPrimary }]}>
+                    Business &amp; Dukan Partner
+                  </Text>
+                  {role === 'merchant' ? (
+                    <View style={[styles.activePill, { backgroundColor: BRAND_COLORS.goldenYellow }]}>
+                      <Ionicons name="checkmark" size={11} color={BRAND_COLORS.charcoalBlack} />
+                      <Text style={[styles.activePillText, { color: BRAND_COLORS.charcoalBlack }]}>
+                        CURRENT ACTIVE
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.personaSub, { color: surface.textSecondary }]}>
+                      {myMerchantName ?? 'Verified'}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              {myStore ? (
+                <Text style={[styles.personaDesc, { color: surface.textSecondary }]}>
+                  {myStore.name} · {myStore.isOpen ? 'OPEN' : 'CLOSED'}
+                  {myStore.opensAt && myStore.closesAt
+                    ? ` · ${myStore.opensAt}–${myStore.closesAt}`
+                    : ''}
+                </Text>
+              ) : (
+                <Text style={[styles.personaDesc, { color: surface.textSecondary }]}>
+                  Store setup pending — Store tab me jake details bharo.
+                </Text>
+              )}
+              {role !== 'merchant' && (
                 <Pressable
-                  key={item.id}
-                  onPress={() => setRole(item.id)}
+                  onPress={() => setRole('merchant')}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  style={[
-                    styles.roleChip,
-                    {
-                      backgroundColor: active
-                        ? BRAND_COLORS.electricGreen
-                        : surface.surface2,
-                      borderColor: active
-                        ? BRAND_COLORS.electricGreen
-                        : surface.borderStrong,
-                    },
-                  ]}
+                  style={[styles.personaSwitchBtn, { backgroundColor: BRAND_COLORS.goldenYellow }]}
                 >
-                  <Text
-                    style={[
-                      styles.choiceChipText,
-                      {
-                        color: active
-                          ? BRAND_COLORS.pureWhite
-                          : surface.textPrimary,
-                      },
-                    ]}
-                  >
-                    {item.label}
+                  <Ionicons name="swap-horizontal" size={15} color={BRAND_COLORS.charcoalBlack} />
+                  <Text style={[styles.personaSwitchText, { color: BRAND_COLORS.charcoalBlack }]}>
+                    Merchant App me Switch karo
                   </Text>
                 </Pressable>
-              );
-            })}
-          </View>
+              )}
+            </View>
+          )}
+
+          {/* Rider persona — only if granted */}
+          {myRoles.includes('rider') && (
+            <View
+              style={[
+                styles.personaCard,
+                {
+                  backgroundColor: role === 'rider' ? BRAND_COLORS.electricGreenSurface : surface.surface2,
+                  borderColor: role === 'rider' ? BRAND_COLORS.electricGreen : surface.borderStrong,
+                },
+              ]}
+            >
+              <View style={styles.personaTopRow}>
+                <View style={[styles.personaIconWrap, { backgroundColor: surface.surface3 }]}>
+                  <Ionicons name="bicycle-outline" size={18} color={surface.textPrimary} />
+                </View>
+                <View style={styles.personaTitleCol}>
+                  <Text style={[styles.personaTitle, { color: surface.textPrimary }]}>
+                    Delivery Partner / Rider
+                  </Text>
+                  {role === 'rider' && (
+                    <View style={[styles.activePill, { backgroundColor: BRAND_COLORS.electricGreen }]}>
+                      <Ionicons name="checkmark" size={11} color={BRAND_COLORS.pureWhite} />
+                      <Text style={styles.activePillText}>CURRENT ACTIVE</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <Text style={[styles.personaDesc, { color: surface.textSecondary }]}>
+                Order trip dispatches, per-drop incentives aur COD vault reconcile.
+              </Text>
+              {role !== 'rider' && (
+                <Pressable
+                  onPress={() => setRole('rider')}
+                  accessibilityRole="button"
+                  style={[styles.personaSwitchBtn, { backgroundColor: BRAND_COLORS.electricGreen }]}
+                >
+                  <Ionicons name="swap-horizontal" size={15} color={BRAND_COLORS.pureWhite} />
+                  <Text style={[styles.personaSwitchText, { color: BRAND_COLORS.pureWhite }]}>
+                    Rider Mode me Switch karo
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+
+          {/* Admin persona — only if granted (never shown to normal users) */}
+          {myRoles.includes('admin') && (
+            <View
+              style={[
+                styles.personaCard,
+                {
+                  backgroundColor: role === 'admin' ? BRAND_COLORS.electricGreenSurface : surface.surface2,
+                  borderColor: role === 'admin' ? BRAND_COLORS.electricGreen : surface.borderStrong,
+                },
+              ]}
+            >
+              <View style={styles.personaTopRow}>
+                <View style={[styles.personaIconWrap, { backgroundColor: surface.surface3 }]}>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={surface.textPrimary} />
+                </View>
+                <View style={styles.personaTitleCol}>
+                  <Text style={[styles.personaTitle, { color: surface.textPrimary }]}>
+                    Admin Control Tower
+                  </Text>
+                  {role === 'admin' && (
+                    <View style={[styles.activePill, { backgroundColor: BRAND_COLORS.electricGreen }]}>
+                      <Ionicons name="checkmark" size={11} color={BRAND_COLORS.pureWhite} />
+                      <Text style={styles.activePillText}>CURRENT ACTIVE</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              {role !== 'admin' && (
+                <Pressable
+                  onPress={() => setRole('admin')}
+                  accessibilityRole="button"
+                  style={[styles.personaSwitchBtn, { backgroundColor: BRAND_COLORS.charcoalBlack }]}
+                >
+                  <Ionicons name="swap-horizontal" size={15} color={BRAND_COLORS.goldenYellow} />
+                  <Text style={[styles.personaSwitchText, { color: BRAND_COLORS.goldenYellow }]}>
+                    Admin Console kholo
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          )}
         </SectionCard>
+
+        {/* ── Business banner (no merchant persona yet) ─────────────── */}
+        {!myRoles.includes('merchant') && (
+          <LinearGradient
+            colors={[...BRAND_GRADIENTS.goldWarm]}
+            style={styles.bizBanner}
+          >
+            <View style={styles.bizTopRow}>
+              <Ionicons name="business-outline" size={22} color={BRAND_COLORS.charcoalBlack} />
+              <Text style={styles.bizTitle}>Dukaan ya Service hai aapke paas?</Text>
+            </View>
+            <Text style={styles.bizSub}>
+              Zaff-It se connect karo — live orders lo, apni dukaan 10-minute delivery
+              network pe pahunchao aur earning aaj se shuru karo.
+            </Text>
+            <Pressable
+              onPress={() => navigation.navigate('MerchantRegister')}
+              accessibilityRole="button"
+              style={styles.bizCta}
+            >
+              <Ionicons name="rocket-outline" size={16} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.bizCtaText}>Merchant/Seller bano — Register karo</Text>
+              <Ionicons name="arrow-forward" size={15} color={BRAND_COLORS.goldenYellow} />
+            </Pressable>
+          </LinearGradient>
+        )}
 
         {/* ── Legal & safety ───────────────────────────────────────── */}
         <SectionCard mode={mode} style={styles.groupCard}>
@@ -1159,5 +1368,103 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.bodyMd,
     marginBottom: SPACING.sm,
     lineHeight: 20,
+  },
+  personaCard: {
+    borderWidth: 1,
+    borderRadius: RADII.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  personaTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  personaIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: RADII.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personaTitleCol: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flexWrap: 'wrap',
+  },
+  personaTitle: {
+    ...TYPOGRAPHY.labelLg,
+  },
+  personaSub: {
+    ...TYPOGRAPHY.captionMin,
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+  },
+  activePillText: {
+    ...TYPOGRAPHY.captionMin,
+    color: BRAND_COLORS.pureWhite,
+  },
+  personaDesc: {
+    ...TYPOGRAPHY.bodySm,
+    lineHeight: 19,
+  },
+  personaSwitchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: SPACING.xs,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  personaSwitchText: {
+    ...TYPOGRAPHY.labelMd,
+  },
+  bizBanner: {
+    borderRadius: RADII.lg,
+    padding: SPACING.lg,
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  bizTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  bizTitle: {
+    ...TYPOGRAPHY.titleMd,
+    color: BRAND_COLORS.charcoalBlack,
+    flex: 1,
+  },
+  bizSub: {
+    ...TYPOGRAPHY.bodySm,
+    color: BRAND_COLORS.charcoalBlack,
+    opacity: 0.8,
+    lineHeight: 19,
+  },
+  bizCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: SPACING.xs,
+    backgroundColor: BRAND_COLORS.charcoalBlack,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  bizCtaText: {
+    ...TYPOGRAPHY.labelMd,
+    color: BRAND_COLORS.goldenYellow,
   },
 });
