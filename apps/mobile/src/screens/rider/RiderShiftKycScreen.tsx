@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -18,6 +18,7 @@ import {
   TOUCH_TARGETS,
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
+import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
 export type KycLoadState = 'ready' | 'loading' | 'empty' | 'error';
 export type DocVerifyStatus = 'verified' | 'pending' | 'rejected';
@@ -61,6 +62,161 @@ const DEFAULT_PROFILE: RiderKycProfile = {
   shiftSelfieTimestamp: null,
   isOnline: false,
 };
+
+/**
+ * RiderEarningsCard — live payout summary from my_rider_earnings() (032 W-Rider).
+ * Shows today/week/total payout, pending COD and overdue flag. Real RPC, no fake data.
+ */
+type EarningsState = {
+  todayPaise: number | null;
+  weekPaise: number | null;
+  totalPaise: number | null;
+  pendingCodPaise: number | null;
+  todayTasks: number | null;
+  overdue: boolean;
+  load: 'idle' | 'loading' | 'error';
+};
+
+const rupees = (paise: number | null): string =>
+  paise === null ? '—' : `₹${(paise / 100).toFixed(2)}`;
+
+const RiderEarningsCard: React.FC = () => {
+  const [state, setState] = useState<EarningsState>({
+    todayPaise: null,
+    weekPaise: null,
+    totalPaise: null,
+    pendingCodPaise: null,
+    todayTasks: null,
+    overdue: false,
+    load: 'idle',
+  });
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    setState((s) => ({ ...s, load: 'loading' }));
+    void (async () => {
+      try {
+        const { data, error } = await supabase.rpc('my_rider_earnings');
+        if (error !== null || data === null || typeof data !== 'object') {
+          setState((s) => ({ ...s, load: 'error' }));
+          return;
+        }
+        const d = data as Record<string, unknown>;
+        setState({
+          todayPaise: Number(d.today_payout_paise ?? 0),
+          weekPaise: Number(d.week_payout_paise ?? 0),
+          totalPaise: Number(d.total_payout_paise ?? 0),
+          pendingCodPaise: Number(d.pending_cod_paise ?? 0),
+          todayTasks: Number(d.today_tasks ?? 0),
+          overdue: d.overdue_cod === true,
+          load: 'idle',
+        });
+      } catch {
+        setState((s) => ({ ...s, load: 'error' }));
+      }
+    })();
+  }, []);
+
+  return (
+    <View style={earningsStyles.card}>
+      <View style={earningsStyles.topRow}>
+        <Text style={earningsStyles.title}>AAJ KI KAMAI</Text>
+        {state.overdue ? (
+          <View style={earningsStyles.overdueChip}>
+            <Text style={earningsStyles.overdueText}>COD DEPOSIT DUE</Text>
+          </View>
+        ) : null}
+      </View>
+      {state.load === 'loading' ? (
+        <ActivityIndicator color={BRAND_COLORS.goldenYellow} />
+      ) : state.load === 'error' ? (
+        <Text style={earningsStyles.meta}>Earnings live nahi — retry duty refresh.</Text>
+      ) : (
+        <>
+          <View style={earningsStyles.statRow}>
+            <View style={earningsStyles.stat}>
+              <Text style={earningsStyles.statValue}>{rupees(state.todayPaise)}</Text>
+              <Text style={earningsStyles.statLabel}>aaj · {state.todayTasks ?? 0} drops</Text>
+            </View>
+            <View style={earningsStyles.stat}>
+              <Text style={earningsStyles.statValue}>{rupees(state.weekPaise)}</Text>
+              <Text style={earningsStyles.statLabel}>is week</Text>
+            </View>
+            <View style={earningsStyles.stat}>
+              <Text style={earningsStyles.statValue}>{rupees(state.totalPaise)}</Text>
+              <Text style={earningsStyles.statLabel}>total</Text>
+            </View>
+            <View style={earningsStyles.stat}>
+              <Text style={[earningsStyles.statValue, { color: state.overdue ? STATUS_COLORS.warningBright : BRAND_COLORS.goldenYellow }]}>
+                {rupees(state.pendingCodPaise)}
+              </Text>
+              <Text style={earningsStyles.statLabel}>pending COD</Text>
+            </View>
+          </View>
+          <Text style={earningsStyles.meta}>
+            Distance-tier payout: ₹8 / ₹12 / ₹16 / ₹20 per drop + escalation bonus.
+          </Text>
+        </>
+      )}
+    </View>
+  );
+};
+
+const earningsStyles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(255,199,3,0.08)',
+    borderColor: 'rgba(255,199,3,0.45)',
+    borderWidth: 1,
+    borderRadius: RADII.lg,
+    padding: SPACING.cardPadding,
+    gap: SPACING.sm,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  title: {
+    ...TYPOGRAPHY.captionMin,
+    color: BRAND_COLORS.goldenYellow,
+    fontWeight: '900',
+  },
+  overdueChip: {
+    backgroundColor: STATUS_COLORS.warningBgDark,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADII.full,
+  },
+  overdueText: {
+    ...TYPOGRAPHY.captionMin,
+    fontSize: 9,
+    color: STATUS_COLORS.warningBright,
+    fontWeight: '900',
+  },
+  statRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 1,
+  },
+  statValue: {
+    ...TYPOGRAPHY.titleMd,
+    color: BRAND_COLORS.goldenYellow,
+    fontWeight: '900',
+  },
+  statLabel: {
+    ...TYPOGRAPHY.captionMin,
+    fontSize: 9,
+    color: SURFACE_DARK.textMuted,
+  },
+  meta: {
+    ...TYPOGRAPHY.captionMin,
+    color: SURFACE_DARK.textMuted,
+  },
+});
 
 export const RiderShiftKycScreen: React.FC<RiderShiftKycScreenProps> = ({
   initialState = 'ready',
@@ -204,6 +360,9 @@ export const RiderShiftKycScreen: React.FC<RiderShiftKycScreenProps> = ({
             {profile.vehicleNumber} · {profile.zoneName}
           </Text>
         </View>
+
+        {/* Live earnings (032 W-Rider payouts) */}
+        <RiderEarningsCard />
 
         {/* KYC Documents Checklist */}
         <View style={styles.sectionCard}>

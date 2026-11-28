@@ -47,6 +47,7 @@ import {
   PrimaryButton,
 } from '@/components/StateViews';
 import { AssuranceStrip, GradientBanner } from '@/components/ui/PremiumKit';
+import { ComingSoonCard } from '@/components/Chrome';
 import type { CustomerTabParamList } from '@/navigation/RootNavigator';
 
 interface StoreRow {
@@ -1828,6 +1829,51 @@ export const CustomerHomeScreen: React.FC = () => {
           />
         </View>
       </View>
+
+      {/* Coming Soon — new verticals (W7 backend live; honest placeholders) */}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={[styles.sectionTitle, { color: surface.textPrimary }]}>
+          Jaldi Aa Raha Hai ✨
+        </Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          gap: SPACING.md,
+          paddingHorizontal: SPACING.screenPadding,
+          paddingBottom: SPACING.xs,
+        }}
+      >
+        <ComingSoonCard
+          mode={colorScheme}
+          icon="medkit-outline"
+          title="Medicine Delivery"
+          subtitle="₹69 din · ₹99 raat (10PM–6AM)"
+          note="Checkout v5 ke saath"
+          onPress={() =>
+            setHomeToast('Medicine delivery — launch jaldi ho raha hai!')
+          }
+        />
+        <ComingSoonCard
+          mode={colorScheme}
+          icon="shirt-outline"
+          title="Laundry Pickup"
+          subtitle="₹15/kg · doorstep pickup"
+          note="50kg tak · final-weight billing"
+          onPress={() => setHomeToast('Laundry — launch jaldi ho raha hai!')}
+        />
+        <ComingSoonCard
+          mode={colorScheme}
+          icon="build-outline"
+          title="Home Services"
+          subtitle="Verified pros se quotes"
+          note="Repair · Cleaning · Appliance"
+          onPress={() =>
+            setHomeToast('Home services — launch jaldi ho raha hai!')
+          }
+        />
+      </ScrollView>
 
       {/* Trending Right Now Section Header */}
       <View style={styles.sectionHeaderRow}>

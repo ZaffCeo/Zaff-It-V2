@@ -415,14 +415,27 @@ export const CartCheckoutScreen: React.FC = () => {
       edges={['top', 'left', 'right']}
     >
       <View style={[styles.header, { borderBottomColor: surface.border }]}>
-        <Text style={[styles.headerTitle, { color: surface.textPrimary }]}>
-          {t.cartTitle}
-        </Text>
-        {cartStoreName !== null ? (
-          <Text style={[styles.storeSub, { color: surface.textMuted }]}>
-            {cartStoreName}
+        <View style={styles.headerTextCol}>
+          <Text style={[styles.headerTitle, { color: surface.textPrimary }]}>
+            {t.cartTitle}
           </Text>
-        ) : null}
+          {cartStoreName !== null ? (
+            <Text style={[styles.storeSub, { color: surface.textMuted }]}>
+              {cartStoreName}
+            </Text>
+          ) : null}
+        </View>
+        <Pressable
+          onPress={() => navigation.navigate('HomeTab')}
+          accessibilityRole="button"
+          accessibilityLabel="Close basket and go home"
+          style={[
+            styles.cartCloseBtn,
+            { backgroundColor: surface.surface2, borderColor: surface.border },
+          ]}
+        >
+          <Ionicons name="close" size={20} color={surface.textPrimary} />
+        </Pressable>
       </View>
 
       {cartItems.length === 0 ? (
@@ -919,6 +932,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.screenPadding,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
+  },
+  headerTextCol: {
+    flex: 1,
+  },
+  cartCloseBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: RADII.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: TYPOGRAPHY.headlineMd.fontSize,

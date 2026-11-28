@@ -34,6 +34,10 @@ import { RiderTasksScreen } from '@/screens/rider/RiderTasksScreen';
 import { RiderDeliveryOtpScreen } from '@/screens/rider/RiderDeliveryOtpScreen';
 import { AdminOpsBoardScreen } from '@/screens/admin/AdminOpsBoardScreen';
 import { CatalogReviewScreen } from '@/screens/admin/CatalogReviewScreen';
+import { AdminVaultScreen } from '@/screens/admin/AdminVaultScreen';
+import { AdminMerchantsScreen } from '@/screens/admin/AdminMerchantsScreen';
+import { AdminZonesScreen } from '@/screens/admin/AdminZonesScreen';
+import { MerchantStoreScreen } from '@/screens/merchant/MerchantStoreScreen';
 import { WalletScreen } from '@/screens/customer/WalletScreen';
 
 export type RootStackParamList = {
@@ -121,7 +125,7 @@ const CustomerTabs: React.FC = () => {
       />
       <CustomerTab.Screen
         name="ExploreTab"
-        component={CustomerHomeScreen}
+        component={CategoryDeepDiveScreen}
         options={{
           title: 'Explore',
         }}
@@ -211,13 +215,7 @@ const MerchantTabs: React.FC = () => (
       name="MerchantStore"
       options={{ title: 'Store' }}
     >
-      {({ navigation }) => (
-        <MerchantDashboardScreen
-          initialState="ready"
-          onOpenOrders={() => navigation.navigate('MerchantOrders')}
-          onOpenInventory={() => navigation.navigate('MerchantCatalog')}
-        />
-      )}
+      {() => <MerchantStoreScreen />}
     </MerchantTab.Screen>
   </MerchantTab.Navigator>
 );
@@ -262,13 +260,13 @@ const AdminTabs: React.FC = () => (
       {() => <CatalogReviewScreen />}
     </AdminTab.Screen>
     <AdminTab.Screen name="AdminMerchants" options={{ title: 'Merchants' }}>
-      {() => <AdminOpsBoardScreen initialState="ready" />}
+      {() => <AdminMerchantsScreen />}
     </AdminTab.Screen>
     <AdminTab.Screen name="AdminVault" options={{ title: 'COD Vault' }}>
-      {() => <AdminOpsBoardScreen initialState="ready" />}
+      {() => <AdminVaultScreen />}
     </AdminTab.Screen>
     <AdminTab.Screen name="AdminGeofence" options={{ title: 'Geofence' }}>
-      {() => <AdminOpsBoardScreen initialState="ready" />}
+      {() => <AdminZonesScreen />}
     </AdminTab.Screen>
   </AdminTab.Navigator>
 );
