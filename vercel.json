@@ -1,8 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "main": true,
-      "arena/*": true
+      "main": false,
+      "arena/*": false
     }
   }
 }
