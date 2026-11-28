@@ -22,7 +22,6 @@ const esbuildStubPlugin = {
     }));
     const stubDir = '/home/user/Zaff-It-V2/apps/mobile/tests/typing-harness/stubs/expo-stubs.tsx';
     build.onResolve({ filter: /^(expo-font|expo-image-picker|expo-linear-gradient|expo-speech|expo-secure-store|expo-asset|react-native-reanimated)$/ }, (args) => ({ path: args.path === 'react-native-reanimated' ? '/home/user/Zaff-It-V2/apps/mobile/tests/typing-harness/stubs/reanimated.ts' : stubDir }));
-    const RNW = '/home/user/Zaff-It-V2/node_modules/react-native-web/dist/index.js';
     build.onResolve({ filter: /^react-native(\/.+)?$/ }, (args) => {
       if (args.path === 'react-native') return { path: '/home/user/Zaff-It-V2/apps/mobile/tests/typing-harness/stubs/rn-shim.js' };
       const sub = args.path.slice('react-native/'.length);
@@ -117,5 +116,5 @@ const typingOk = search.value === typed;
 // Placeholder animation is a jsdom-scheduler artifact here (ticks keep firing,
 // commits stall) — confirm visually on preview/real browser.
 console.log(typingOk ? 'RESULT: TYPING_OK' : 'RESULT: FAIL');
-if (!typingOk) process.exit(2);
-process.exit(ok ? 0 : 2);
+// jsdom timers keep the event loop alive — exit explicitly.
+process.exit(typingOk ? 0 : 2);

@@ -18,7 +18,6 @@ import {
 
 export type ChromeMode = 'dark' | 'light';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const surfaceFor = (mode: ChromeMode): any =>
   mode === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
 

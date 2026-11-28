@@ -39,6 +39,8 @@ const TAB_VISUALS: Record<string, TabVisual> = {
   RiderEarnings: { icon: 'cash-outline', iconActive: 'cash', label: 'Earnings' },
   RiderProfile: { icon: 'shield-checkmark-outline', iconActive: 'shield-checkmark', label: 'KYC' },
   // Admin
+  AdminApprovals: { icon: 'shield-checkmark-outline', iconActive: 'shield-checkmark', label: 'Approvals' },
+  AdminCatalog: { icon: 'checkmark-done-outline', iconActive: 'checkmark-done', label: 'Catalog' },
   AdminRadar: { icon: 'pulse-outline', iconActive: 'pulse', label: 'Radar' },
   AdminMerchants: { icon: 'business-outline', iconActive: 'business', label: 'Merchants' },
   AdminVault: { icon: 'lock-closed-outline', iconActive: 'lock-closed', label: 'COD Vault' },
