@@ -1,8 +1,8 @@
 {
   "git": {
     "deploymentEnabled": {
-      "arena/565f9ef2-zaff-it-v2": false,
-      "arena/*": false
+      "main": true,
+      "arena/*": true
     }
   }
 }
