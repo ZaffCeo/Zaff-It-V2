@@ -99,6 +99,7 @@ export const AccountComplianceScreen: React.FC = () => {
   });
   const [walletCoins, setWalletCoins] = useState<number | null>(null);
   const [zaffPublicId, setZaffPublicId] = useState<string | null>(null);
+  const [zaffStatus, setZaffStatus] = useState<string | null>(null);
   const [proPlan, setProPlan] = useState<string | null>(null);
   const [proExpiry, setProExpiry] = useState<string | null>(null);
   const [nameModalOpen, setNameModalOpen] = useState(false);
@@ -149,10 +150,18 @@ export const AccountComplianceScreen: React.FC = () => {
       })();
 
       void (async () => {
+        // my_zaffid shape: { exists, identity: { public_id, status, ... }, connected_apps, event_count }
         const { data, error } = await supabase.rpc('my_zaffid');
         if (!error && data && typeof data === 'object') {
-          const pub = (data as Record<string, unknown>).public_id;
-          if (typeof pub === 'string') setZaffPublicId(pub);
+          const d = data as Record<string, unknown>;
+          const ident = d.identity as Record<string, unknown> | undefined;
+          if (d.exists === true && ident && typeof ident.public_id === 'string') {
+            setZaffPublicId(ident.public_id);
+            setZaffStatus(typeof ident.status === 'string' ? ident.status : null);
+          } else {
+            setZaffPublicId(null);
+            setZaffStatus(null);
+          }
         }
       })();
 
@@ -426,12 +435,23 @@ export const AccountComplianceScreen: React.FC = () => {
                 {profile.phone ?? phone ?? '—'}
               </Text>
               <View style={styles.heroChips}>
-                <View style={[styles.heroChip, { backgroundColor: BRAND_COLORS.goldSoft }]}>
+                <Pressable
+                  onPress={() => navigation.navigate('ZaffId')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open ZaffID"
+                  style={[styles.heroChip, { backgroundColor: BRAND_COLORS.goldSoft }]}
+                >
                   <Ionicons name="id-card" size={11} color="#8A6D00" />
                   <Text style={[styles.heroChipText, { color: '#8A6D00' }]}>
                     {zaffPublicId ?? 'ZaffID banao'}
                   </Text>
-                </View>
+                  {zaffStatus === 'deactivated' && (
+                    <Text style={[styles.heroChipText, { color: STATUS_COLORS.error }]}>
+                      · OFF
+                    </Text>
+                  )}
+                  <Ionicons name="chevron-forward" size={11} color="#8A6D00" />
+                </Pressable>
                 {proPlan !== null ? (
                   <View
                     style={[
@@ -477,7 +497,7 @@ export const AccountComplianceScreen: React.FC = () => {
           <StatTile
             mode={mode}
             icon="id-card-outline"
-            value={zaffPublicId ?? '—'}
+            value={zaffPublicId ?? 'Banao'}
             label="ZaffID"
           />
           <StatTile
@@ -589,8 +609,10 @@ export const AccountComplianceScreen: React.FC = () => {
             title="ZaffID — One ID. Every Zaff."
             subtitle={
               zaffPublicId !== null
-                ? `Aapki ID: ${zaffPublicId}`
-                : 'Apni ZaffID generate karein'
+                ? `Aapki ID: ${zaffPublicId} · ${
+                    zaffStatus === 'deactivated' ? 'DEACTIVATED' : 'ACTIVE'
+                  }`
+                : 'Apni ZaffID generate karein — free, one-time'
             }
             tint={BRAND_COLORS.goldenYellow}
             onPress={() => navigation.navigate('ZaffId')}
