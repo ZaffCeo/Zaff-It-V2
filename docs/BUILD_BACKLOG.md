@@ -11,10 +11,9 @@
 
 ## 🔥 NOW — backend ready ya high-value (is order me, one-by-one)
 
-### 1. Laundry booking UI (customer)
-- **DB:** 100% LIVE (033: create/cancel_laundry_order, my_laundry_orders, ₹15/kg config, 50kg cap, slots)
-- **Stitch:** book_karigar_instant_schedule_area_flow (slot pattern), pickup_status_token + pickup_status_token_with_alert_previews (status), doorstep_bag_return_instant_cashback (delivery)
-- **Effort:** ½–1 din. Screens: booking (weight slider + slot chips + price preview), "Meri Laundry" list in Orders tab.
+### 1. Laundry booking UI (customer) — ✅ IMPLEMENTED (2026-11-28)
+- **Delivered:** per-piece pricing migration 036 (founder rates: pair ₹40 / single ₹20 / press ₹10 / saree ₹40 / bedsheet ₹40 / blanket ₹80, no minimum) + `LaundryScreen` (booking + "Meri Laundry" list + cancel) + RootNavigator route + Home rail & Profile tiles wired. Live E2E pass (server-side pricing, cancel, invalid-item guard). Demo pending order ₹120 left for founder view.
+- **NOT yet:** rider laundry pickup/return tasks UI, admin laundry status ladder UI (RPCs live), Zaffy/home deep-links. → merge into W-A3 rider/admin pass.
 
 ### 2. Service marketplace UI (customer + provider)
 - **DB:** 100% LIVE (033: create_service_request, submit/accept_service_quote, open_service_requests, 6 categories, provider role)

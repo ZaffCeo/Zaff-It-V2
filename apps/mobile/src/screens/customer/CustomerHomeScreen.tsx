@@ -1859,9 +1859,9 @@ export const CustomerHomeScreen: React.FC = () => {
           mode={colorScheme}
           icon="shirt-outline"
           title="Laundry Pickup"
-          subtitle="₹15/kg · doorstep pickup"
-          note="50kg tak · final-weight billing"
-          onPress={() => setHomeToast('Laundry — launch jaldi ho raha hai!')}
+          subtitle="₹40 jodi · ₹20 single · ₹10 press"
+          note="Wash + Press included · free pickup"
+          onPress={() => navigation.navigate('Laundry')}
         />
         <ComingSoonCard
           mode={colorScheme}
