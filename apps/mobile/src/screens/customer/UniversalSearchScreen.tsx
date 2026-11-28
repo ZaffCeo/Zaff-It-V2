@@ -22,6 +22,17 @@ import {
   TYPOGRAPHY,
 } from '@zaff-it/shared/tokens';
 import { useAppStore } from '@/store/useAppStore';
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: unknown) => void) | null;
+  onresult: ((e: { results?: ArrayLike<ArrayLike<{ transcript?: string }>> }) => void) | null;
+};
 import { supabase, isSupabaseConfigured } from '@/services/supabase';
 import { EmptyState, ErrorRetryBanner, LoadingSkeleton } from '@/components/StateViews';
 import type { CustomerStackParamList } from '@/navigation/RootNavigator';
@@ -97,6 +108,7 @@ export const UniversalSearchScreen: React.FC = () => {
   const surface = colorScheme === 'dark' ? SURFACE_DARK : SURFACE_LIGHT;
 
   const [query, setQuery] = useState(route.params?.initialQuery ?? '');
+  const [voiceListening, setVoiceListening] = useState(false);
   const [rows, setRows] = useState<SearchRow[]>([]);
   const [sponsored, setSponsored] = useState<SponsoredRow[]>([]);
   // Per-session viewer salt: dedups repeated impressions/clicks server-side per 10-min bucket.
@@ -125,6 +137,32 @@ export const UniversalSearchScreen: React.FC = () => {
       return next;
     });
   }, []);
+
+  // Voice typing (web SpeechRecognition) — bolo aur search ho jayega
+  const startVoice = (onText: (t: string) => void) => {
+    const W = globalThis as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SR = W.SpeechRecognition ?? W.webkitSpeechRecognition;
+    if (!SR) {
+      setErrorMsg('Voice typing is not available in this browser — try Chrome.');
+      return;
+    }
+    if (voiceListening) return;
+    const rec = new SR();
+    rec.lang = 'hi-IN';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = () => setVoiceListening(true);
+    rec.onend = () => setVoiceListening(false);
+    rec.onerror = () => setVoiceListening(false);
+    rec.onresult = (e) => {
+      const text = String(e.results?.[0]?.[0]?.transcript ?? '').trim();
+      if (text) onText(text);
+    };
+    rec.start();
+  };
 
   const runSearch = useCallback(async (q: string) => {
     if (!isSupabaseConfigured()) {
@@ -273,6 +311,8 @@ export const UniversalSearchScreen: React.FC = () => {
             value={query}
             onChangeText={onChangeQuery}
             onSubmitEditing={() => rememberRecent(query)}
+            autoFocus
+            selectionColor={BRAND_COLORS.goldenYellow}
             placeholder="Need-It? Zaff-It. Search anything..."
             placeholderTextColor={surface.textMuted}
             returnKeyType="search"
@@ -291,6 +331,23 @@ export const UniversalSearchScreen: React.FC = () => {
               <Ionicons name="close-circle" size={18} color={surface.textMuted} />
             </Pressable>
           )}
+          <Pressable
+            onPress={() =>
+              startVoice((t) => {
+                setQuery(t);
+                runSearch(t);
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Voice search"
+            style={{ paddingHorizontal: 2 }}
+          >
+            <Ionicons
+              name="mic-outline"
+              size={18}
+              color={voiceListening ? BRAND_COLORS.goldenYellow : surface.textMuted}
+            />
+          </Pressable>
         </View>
       </View>
 

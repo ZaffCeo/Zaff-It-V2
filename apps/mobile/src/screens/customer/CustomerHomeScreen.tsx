@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   Image,
   Modal,
@@ -40,6 +41,7 @@ import {
 } from '@/store/useAppStore';
 import { getTranslation } from '@/i18n/translations';
 import { ensureFreshSession, isSupabaseConfigured, supabase, SUPABASE_FUNCTIONS_URL } from '@/services/supabase';
+import * as ImagePicker from 'expo-image-picker';
 import {
   EmptyState,
   ErrorRetryBanner,
@@ -109,6 +111,25 @@ interface ParchiMatch {
   row: ParchiRow | null;
   qty: number;
 }
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start: () => void;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((e: unknown) => void) | null;
+  onresult: ((e: { results?: ArrayLike<ArrayLike<{ transcript?: string }>> }) => void) | null;
+};
+
+// Search-bar placeholder rotation (typewriter-style cycle)
+const SEARCH_PLACEHOLDERS = [
+  'Need It? Zaff-It! Search anything…',
+  'Doodh, atta, masala — bas likhna shuru karo…',
+  'Parchi 📄 ya WhatsApp list se bhi order karo',
+  '🎤 Mic dabao — bolo aur search ho jayega',
+];
 
 interface StoreInfo {
   id: string;
@@ -354,6 +375,7 @@ export const CustomerHomeScreen: React.FC = () => {
   const language = useAppStore((s) => s.language);
   const colorScheme = useAppStore((s) => s.colorScheme);
   const zone = useAppStore((s) => s.zone);
+  const selectedAddressLabel = useAppStore((s) => s.selectedAddressLabel);
   const setPromoCode = useAppStore((s) => s.setPromoCode);
   const parchiRequestTick = useAppStore((s) => s.parchiRequestTick);
   const setParchiRequestTick = useAppStore((s) => s.setParchiRequestTick);
@@ -379,6 +401,35 @@ export const CustomerHomeScreen: React.FC = () => {
   const [parchiParsing, setParchiParsing] = useState(false);
   const [parchiMatches, setParchiMatches] = useState<ParchiMatch[]>([]);
   const [parchiNote, setParchiNote] = useState<string | null>(null);
+  const [parchiTab, setParchiTab] = useState<'text' | 'photo'>('text');
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [searchPhIdx, setSearchPhIdx] = useState(0);
+  const micPulse = useRef(new Animated.Value(1)).current;
+
+  // Mic pulse while voice listens
+  useEffect(() => {
+    if (voiceListening) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(micPulse, { toValue: 0.45, duration: 520, useNativeDriver: true }),
+          Animated.timing(micPulse, { toValue: 1, duration: 520, useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+    micPulse.setValue(1);
+  }, [voiceListening, micPulse]);
+
+  // Rotating search placeholder (animation in the bar itself)
+  useEffect(() => {
+    const t = setInterval(
+      () => setSearchPhIdx((i) => (i + 1) % SEARCH_PLACEHOLDERS.length),
+      3200,
+    );
+    return () => clearInterval(t);
+  }, []);
   const [nearbyStores, setNearbyStores] = useState<StoreInfo[]>(FALLBACK_STORES);
   // W4c/Zaff Ads Phase 1: admin-approved, paid-or-free sponsored placements (always labelled).
   const [sponsoredStores, setSponsoredStores] = useState<SponsoredStoreAd[]>([]);
@@ -618,10 +669,86 @@ export const CustomerHomeScreen: React.FC = () => {
     setParchiNote(null);
   };
 
+  // Voice typing — web SpeechRecognition (Chrome/Edge/Android), graceful fallback.
+  const startVoice = (onText: (t: string) => void, onFail?: (msg: string) => void) => {
+    const W = globalThis as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SR = W.SpeechRecognition ?? W.webkitSpeechRecognition;
+    if (!SR) {
+      onFail?.('Voice typing is not available in this browser — try Chrome.');
+      return;
+    }
+    if (voiceListening) return;
+    const rec = new SR();
+    rec.lang = 'hi-IN';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = () => setVoiceListening(true);
+    rec.onend = () => setVoiceListening(false);
+    rec.onerror = () => {
+      setVoiceListening(false);
+      onFail?.('The voice could not be heard — try speaking again.');
+    };
+    rec.onresult = (e) => {
+      const text = String(e.results?.[0]?.[0]?.transcript ?? '').trim();
+      if (text) onText(text);
+    };
+    rec.start();
+  };
+
+  // Parchi photo → Gemini OCR (parchi-ocr edge function) → item text
+  const pickAndOcr = async (useCamera: boolean) => {
+    if (ocrBusy) return;
+    try {
+      const res = useCamera
+        ? await ImagePicker.launchCameraAsync({ quality: 0.6, base64: true, exif: false })
+        : await ImagePicker.launchImageLibraryAsync({
+            quality: 0.6,
+            base64: true,
+            exif: false,
+            mediaTypes: ['images'],
+          });
+      if (res.canceled) return;
+      const b64 = res.assets?.[0]?.base64 ?? null;
+      if (!b64) {
+        setParchiNote('The image could not be read — please try again.');
+        return;
+      }
+      setOcrBusy(true);
+      setParchiNote(null);
+      const { data, error } = await supabase.functions.invoke('parchi-ocr', {
+        body: { image_base64: b64, mime: 'image/jpeg' },
+      });
+      if (error) {
+        setParchiNote(`OCR failed: ${error.message ?? 'unknown error'}`);
+        return;
+      }
+      const items = ((data as { items?: Array<{ name: string; qty: number }> })?.items ?? []) as Array<{
+        name: string;
+        qty: number;
+      }>;
+      if (items.length === 0) {
+        setParchiNote('No items were found on the parchi — take a photo with a bit more light.');
+        return;
+      }
+      const text = items.map((it) => (it.qty > 1 ? `${it.name} ${it.qty}` : it.name)).join('\n');
+      setParchiText(text);
+      setParchiTab('text');
+      setParchiNote(`OCR done — ${items.length} items found. Check the list and add them to the cart.`);
+      await parseParchiList(text);
+    } catch (e) {
+      setParchiNote(`OCR error: ${String(e).slice(0, 120)}`);
+    } finally {
+      setOcrBusy(false);
+    }
+  };
+
   // Parchi/WhatsApp list matcher: split the pasted list, resolve each item via
   // the synonym-aware search_products RPC (doodh→milk, biskut→biscuit…).
-  const parseParchiList = async () => {
-    const tokens = parchiText
+  const parseParchiList = async (overrideText?: string) => {
+    const tokens = (overrideText ?? parchiText)
       .split(/[\n,;]+/)
       .map((t) => t.trim())
       .filter((t) => t.length >= 2)
@@ -1200,11 +1327,11 @@ export const CustomerHomeScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Location Pill */}
+      {/* Location Pill — real selected address, tap → Address Book */}
       <Pressable
-        onPress={() => navigation.navigate('AccountTab')}
+        onPress={() => navigation.navigate('AddressBook')}
         accessibilityRole="button"
-        accessibilityLabel="Delivery Location"
+        accessibilityLabel="Delivery Location — address change karo"
         style={[
           styles.locationPill,
           {
@@ -1227,17 +1354,13 @@ export const CustomerHomeScreen: React.FC = () => {
             style={[styles.locationMain, { color: surface.textPrimary }]}
             numberOfLines={1}
           >
-            Home • {zone.city}
+            {selectedAddressLabel || `Home • ${zone.city}`}
           </Text>
         </View>
-        <View style={styles.etaPill}>
-          <Ionicons name="flash" size={11} color={BRAND_COLORS.electricGreen} />
-          <Text style={styles.etaPillText}>{etaLabel}</Text>
-        </View>
-        <Ionicons name="chevron-down" size={18} color={surface.textSecondary} />
+        <Ionicons name="chevron-forward" size={18} color={surface.textSecondary} />
       </Pressable>
 
-      {/* LIVE delivery strip — Stitch home */}
+      {/* LIVE delivery strip — ETA hero (Stitch home) */}
       <View
         style={[
           styles.liveStrip,
@@ -1248,18 +1371,18 @@ export const CustomerHomeScreen: React.FC = () => {
           <View style={styles.liveDot} />
           <Text style={styles.liveDotText}>LIVE</Text>
         </View>
-        <Text style={[styles.liveStripMain, { color: surface.textPrimary }]}>
-          <Text style={{ fontWeight: '900' }}>{etaLabel.toUpperCase()}</Text> DELIVERY · {zone.city}
-        </Text>
-        <Pressable
-          onPress={() => navigation.navigate('Wallet')}
-          accessibilityRole="button"
-          accessibilityLabel="Cash balance"
-          style={styles.cashChip}
-        >
-          <Ionicons name="cash-outline" size={13} color={BRAND_COLORS.charcoalBlack} />
-          <Text style={styles.cashChipText}>CASH</Text>
-        </Pressable>
+        <View style={[styles.liveEtaChip, { backgroundColor: BRAND_COLORS.goldSoft }]}>
+          <Ionicons name="flash" size={16} color="#8A6D00" />
+          <Text style={[styles.liveEtaNum, { color: '#8A6D00' }]}>{etaLabel.toUpperCase()} MIN</Text>
+        </View>
+        <View style={styles.liveStripTextWrap}>
+          <Text style={[styles.liveStripMain, { color: surface.textPrimary }]}>
+            Average delivery
+          </Text>
+          <Text style={[styles.liveStripSub, { color: surface.textMuted }]}>
+            {zone.city} · FREE over {formatPaise(Math.trunc(zone.freeDeliveryThresholdPaise))}
+          </Text>
+        </View>
       </View>
 
       {/* Dark Charcoal Search Pill */}
@@ -1272,7 +1395,10 @@ export const CustomerHomeScreen: React.FC = () => {
             navigation.navigate('UniversalSearch', { initialQuery: searchQuery })
           }
           returnKeyType="search"
-          placeholder="Need-It? Zaff-It. Search anything..."
+          multiline={false}
+          blurOnSubmit={false}
+          selectionColor={BRAND_COLORS.goldenYellow}
+          placeholder={SEARCH_PLACEHOLDERS[searchPhIdx]}
           placeholderTextColor="#94A3B8"
           style={[styles.searchInput, { color: surface.textPrimary }]}
         />
@@ -1288,55 +1414,45 @@ export const CustomerHomeScreen: React.FC = () => {
           >
             <Ionicons name="close-circle" size={18} color="#94A3B8" />
           </Pressable>
-        ) : null}
-        <Pressable
-          onPress={() => openZaffyWithPrompt('')}
-          accessibilityRole="button"
-          accessibilityLabel="Voice Search or Ask Zaffy"
-          style={styles.micBtn}
-        >
-          <Ionicons name="mic-outline" size={20} color={BRAND_COLORS.pureWhite} />
-        </Pressable>
+        ) : (
+          <>
+            {/* Parchi system — WhatsApp text + photo OCR, inside the search bar */}
+            <Pressable
+              onPress={() => {
+                setParchiTab('text');
+                setParchiOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Parchi ya WhatsApp list scanner"
+              style={styles.searchSideBtn}
+            >
+              <Ionicons name="document-text-outline" size={19} color={BRAND_COLORS.pureWhite} />
+            </Pressable>
+            <Animated.View style={{ opacity: micPulse }}>
+              <Pressable
+                onPress={() =>
+                  startVoice((t) => {
+                    setSearchQuery(t);
+                    navigation.navigate('UniversalSearch', { initialQuery: t });
+                  }, (m) => setHomeToast(m))
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Voice search — bolo aur search ho jayega"
+                style={[
+                  styles.searchSideBtn,
+                  voiceListening ? { backgroundColor: BRAND_COLORS.goldenYellow } : null,
+                ]}
+              >
+                <Ionicons
+                  name="mic-outline"
+                  size={20}
+                  color={voiceListening ? BRAND_COLORS.charcoalBlack : BRAND_COLORS.pureWhite}
+                />
+              </Pressable>
+            </Animated.View>
+          </>
+        )}
       </View>
-
-      {/* Parchi / WhatsApp list — AI list-to-cart (Stitch green banner) */}
-      <Pressable
-        onPress={() => setParchiOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Parchi ya WhatsApp list se order karo"
-        style={styles.parchiBanner}
-      >
-        <LinearGradient
-          colors={['#0E7A38', '#16A34A']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.parchiGradient}
-        >
-          <View style={styles.parchiLeft}>
-            <View style={styles.parchiBadge}>
-              <Text style={styles.parchiBadgeText}>LOCAL AI SUPER FEATURE</Text>
-            </View>
-            <Text style={styles.parchiTitle}>Parchi ya WhatsApp list hai?</Text>
-            <Text style={styles.parchiSub} numberOfLines={2}>
-              Handwritten khata parchi ya WhatsApp list upload karo, order bana
-              ke pack karwao — wastage zero!
-            </Text>
-            <View style={styles.parchiBtnRow}>
-              <View style={styles.parchiBtn}>
-                <Ionicons name="document-text-outline" size={14} color="#0E2A16" />
-                <Text style={styles.parchiBtnText}>Paste Text</Text>
-              </View>
-              <View style={styles.parchiBtnGhost}>
-                <Ionicons name="create-outline" size={14} color="#FFFFFF" />
-                <Text style={styles.parchiBtnGhostText}>Type Karo</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.parchiArt}>
-            <Ionicons name="receipt-outline" size={34} color="#0E2A16" />
-          </View>
-        </LinearGradient>
-      </Pressable>
 
       {/* ZAFFFIRST launch coupon (Stitch yellow banner) */}
       <View style={styles.couponBanner}>
@@ -2080,7 +2196,104 @@ export const CustomerHomeScreen: React.FC = () => {
               </View>
             </View>
 
-            <TextInput
+            {/* Mode tabs — Text / Photo OCR */}
+            <View style={styles.parchiTabsRow}>
+              <Pressable
+                onPress={() => setParchiTab('text')}
+                accessibilityRole="button"
+                accessibilityState={{ selected: parchiTab === 'text' }}
+                style={[
+                  styles.parchiTabChip,
+                  {
+                    backgroundColor: parchiTab === 'text' ? BRAND_COLORS.charcoalBlack : surface.surface2,
+                    borderColor: surface.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={14}
+                  color={parchiTab === 'text' ? BRAND_COLORS.goldenYellow : surface.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.parchiTabText,
+                    { color: parchiTab === 'text' ? BRAND_COLORS.goldenYellow : surface.textPrimary },
+                  ]}
+                >
+                  WhatsApp / Text
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setParchiTab('photo')}
+                accessibilityRole="button"
+                accessibilityState={{ selected: parchiTab === 'photo' }}
+                style={[
+                  styles.parchiTabChip,
+                  {
+                    backgroundColor: parchiTab === 'photo' ? BRAND_COLORS.charcoalBlack : surface.surface2,
+                    borderColor: surface.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="camera-outline"
+                  size={14}
+                  color={parchiTab === 'photo' ? BRAND_COLORS.goldenYellow : surface.textSecondary}
+                />
+                <Text
+                  style={[
+                    styles.parchiTabText,
+                    { color: parchiTab === 'photo' ? BRAND_COLORS.goldenYellow : surface.textPrimary },
+                  ]}
+                >
+                  Parchi Photo (OCR)
+                </Text>
+              </Pressable>
+            </View>
+
+            {parchiTab === 'photo' ? (
+              <View style={[styles.parchiPhotoBox, { backgroundColor: surface.surface1, borderColor: surface.border }]}>
+                <Ionicons name="scan-outline" size={26} color="#16A34A" />
+                <Text style={[styles.parchiPhotoTitle, { color: surface.textPrimary }]}>
+                  Parchi ki photo kheencho ya gallery se chuno
+                </Text>
+                <Text style={[styles.parchiPhotoSub, { color: surface.textMuted }]}>
+                  AI OCR: Hindi · English · Hinglish handwritten parchi padh leta hai
+                </Text>
+                <View style={styles.parchiPhotoBtnRow}>
+                  <Pressable
+                    onPress={() => void pickAndOcr(true)}
+                    disabled={ocrBusy}
+                    style={[styles.parchiPhotoBtn, { backgroundColor: '#16A34A', opacity: ocrBusy ? 0.5 : 1 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Camera se parchi scan"
+                  >
+                    <Ionicons name="camera-outline" size={15} color={BRAND_COLORS.pureWhite} />
+                    <Text style={[styles.parchiPhotoBtnText, { color: BRAND_COLORS.pureWhite }]}>Camera</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void pickAndOcr(false)}
+                    disabled={ocrBusy}
+                    style={[styles.parchiPhotoBtn, { backgroundColor: surface.surface3, opacity: ocrBusy ? 0.5 : 1 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Gallery se parchi chuno"
+                  >
+                    <Ionicons name="images-outline" size={15} color={surface.textPrimary} />
+                    <Text style={[styles.parchiPhotoBtnText, { color: surface.textPrimary }]}>Gallery</Text>
+                  </Pressable>
+                </View>
+                {ocrBusy && (
+                  <View style={styles.ocrBusyRow}>
+                    <Text style={[styles.ocrBusyText, { color: surface.textSecondary }]}>
+                      AI parchi padh raha hai…
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View>
+                <TextInput
               value={parchiText}
               onChangeText={setParchiText}
               multiline
@@ -2091,7 +2304,26 @@ export const CustomerHomeScreen: React.FC = () => {
                 styles.parchiInput,
                 { backgroundColor: surface.surface1, borderColor: surface.border, color: surface.textPrimary },
               ]}
-            />
+              />
+                <Pressable
+                  onPress={() =>
+                    startVoice((t) => setParchiText((p) => (p ? `${p}\n${t}` : t)), (m) => setParchiNote(m))
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Voice se list bolo"
+                  style={[styles.parchiVoiceBtn, { backgroundColor: surface.surface2, borderColor: surface.border }]}
+                >
+                  <Ionicons
+                    name="mic-outline"
+                    size={15}
+                    color={voiceListening ? '#16A34A' : surface.textSecondary}
+                  />
+                  <Text style={[styles.parchiVoiceText, { color: surface.textSecondary }]}>
+                    {voiceListening ? 'Sun raha hai… bolo' : 'Voice se bolo (mic)'}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
 
             {parchiNote ? (
               <View style={styles.parchiNoteBox}>
@@ -2154,7 +2386,7 @@ export const CustomerHomeScreen: React.FC = () => {
 
             <View style={styles.parchiFooter}>
               <Pressable
-                onPress={parseParchiList}
+                onPress={() => void parseParchiList()}
                 disabled={parchiParsing}
                 accessibilityRole="button"
                 accessibilityLabel="Match parchi list"
@@ -2445,12 +2677,6 @@ const styles = StyleSheet.create({
     minHeight: TOUCH_TARGETS.minSize,
   },
   searchClearBtn: { padding: 4, marginLeft: 2 },
-  micBtn: {
-    minWidth: TOUCH_TARGETS.minSize,
-    minHeight: TOUCH_TARGETS.minSize,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   askZaffyCard: {
     backgroundColor: '#FFF3C4',
     borderRadius: RADII.xl,
@@ -2888,20 +3114,6 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.labelLg.fontSize,
     fontWeight: '800',
   },
-  etaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(12,131,31,0.12)',
-    borderRadius: RADII.full,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  etaPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: BRAND_COLORS.electricGreen,
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -2988,93 +3200,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.bodySm.fontSize,
     fontWeight: '700',
   },
-  cashChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: BRAND_COLORS.goldenYellow,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  cashChipText: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: BRAND_COLORS.charcoalBlack,
-  },
   // ---- Parchi banner ----
-  parchiBanner: { marginTop: SPACING.sm },
-  parchiGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: RADII.lg,
-    padding: SPACING.md,
-  },
-  parchiLeft: { flex: 1, paddingRight: SPACING.sm },
-  parchiBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(14,42,22,0.35)',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  parchiBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#FFE9A8',
-    letterSpacing: 0.6,
-  },
-  parchiTitle: {
-    fontSize: TYPOGRAPHY.titleMd.fontSize,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  parchiSub: {
-    fontSize: TYPOGRAPHY.bodySm.fontSize,
-    lineHeight: TYPOGRAPHY.bodySm.lineHeight,
-    color: 'rgba(255,255,255,0.88)',
-    marginTop: 3,
-    marginBottom: SPACING.sm,
-  },
-  parchiBtnRow: { flexDirection: 'row', gap: 8 },
-  parchiBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFEB99',
-    borderRadius: RADII.sm,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 7,
-  },
-  parchiBtnText: {
-    fontSize: TYPOGRAPHY.bodySm.fontSize,
-    fontWeight: '900',
-    color: '#0E2A16',
-  },
-  parchiBtnGhost: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.55)',
-    borderRadius: RADII.sm,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 7,
-  },
-  parchiBtnGhostText: {
-    fontSize: TYPOGRAPHY.bodySm.fontSize,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  parchiArt: {
-    width: 62,
-    height: 62,
-    borderRadius: RADII.md,
-    backgroundColor: 'rgba(255,235,153,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   // ---- ZAFFFIRST coupon banner ----
   couponBanner: { marginTop: SPACING.sm },
   couponGradient: {
@@ -3453,6 +3579,81 @@ const styles = StyleSheet.create({
     lineHeight: TYPOGRAPHY.bodySm.lineHeight,
     marginTop: 2,
   },
+  searchSideBtn: {
+    padding: 4,
+    borderRadius: RADII.sm,
+  },
+  liveEtaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+  },
+  liveEtaNum: {
+    ...TYPOGRAPHY.labelLg,
+    letterSpacing: 0.4,
+  },
+  liveStripTextWrap: { flex: 1 },
+  liveStripSub: { ...TYPOGRAPHY.bodySm },
+  parchiTabsRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  parchiTabChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 7,
+  },
+  parchiTabText: { ...TYPOGRAPHY.labelMd },
+  parchiPhotoBox: {
+    borderRadius: RADII.md,
+    borderWidth: 1,
+    padding: SPACING.lg,
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  parchiPhotoTitle: { ...TYPOGRAPHY.labelLg, textAlign: 'center' },
+  parchiPhotoSub: { ...TYPOGRAPHY.bodySm, textAlign: 'center', lineHeight: 18 },
+  parchiPhotoBtnRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  parchiPhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  parchiPhotoBtnText: { ...TYPOGRAPHY.labelMd },
+  ocrBusyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: SPACING.xs,
+  },
+  ocrBusyText: { ...TYPOGRAPHY.bodySm },
+  parchiVoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    borderRadius: RADII.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6,
+    marginTop: SPACING.xs,
+  },
+  parchiVoiceText: { ...TYPOGRAPHY.captionMin },
   parchiInput: {
     borderWidth: 1,
     borderRadius: RADII.md,

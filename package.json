@@ -2,7 +2,7 @@
   "name": "zaff-it-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "ZAFF-IT \u2014 Hyperlocal Quick-Commerce Ecosystem (Makrana Merchant-First Pilot -> Dark Store at 500 orders/day)",
+  "description": "ZAFF-IT — Hyperlocal Quick-Commerce Ecosystem (Makrana Merchant-First Pilot -> Dark Store at 500 orders/day)",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -24,5 +24,8 @@
     "node": ">=20.0.0"
   },
   "author": "ZaffmIND Technology / ZAFF Group",
-  "license": "PROPRIETARY"
+  "license": "PROPRIETARY",
+  "dependencies": {
+    "expo-image-picker": "~57.0.22"
+  }
 }

@@ -48,21 +48,13 @@ interface SavedAddress {
   delivery_instructions?: string | null;
 }
 
-interface NominatimResult {
-  place_id: number;
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
-    road?: string;
-    suburb?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    state?: string;
-    postcode?: string;
-  };
-}
+type GeoResult = {
+  name: string;
+  full: string;
+  lat: number;
+  lng: number;
+  type: string;
+};
 
 const MAKRANA_CENTER = { lat: 27.0419, lng: 74.7253 };
 
@@ -149,7 +141,7 @@ export const AddressBookScreen: React.FC = () => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchingGeo, setSearchingGeo] = useState(false);
-  const [geoResults, setGeoResults] = useState<NominatimResult[]>([]);
+  const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const [newLabel, setNewLabel] = useState<'Home' | 'Work' | 'Other'>('Home');
@@ -164,6 +156,7 @@ export const AddressBookScreen: React.FC = () => {
   const [newLng, setNewLng] = useState(MAKRANA_CENTER.lng);
   const [newInstructions, setNewInstructions] = useState('');
   const [saving, setSaving] = useState(false);
+
 
   const loadAddresses = useCallback(async () => {
     setLoading(true);
@@ -228,52 +221,40 @@ export const AddressBookScreen: React.FC = () => {
   const handleSearchNominatim = async () => {
     const trimmed = searchQuery.trim();
     if (trimmed.length < 3) {
-      setGeoError('Enter at least 3 characters to search Makrana or nearby streets.');
+      setGeoError('Kam se kam 3 characters likho — jaise "Station Road", "Marble Mandi".');
       return;
     }
 
     setSearchingGeo(true);
     setGeoError(null);
     try {
-      const query = trimmed.toLowerCase().includes('makrana')
-        ? trimmed
-        : `${trimmed}, Makrana, Rajasthan`;
-      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=in&limit=5&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url, {
-        headers: {
-          Accept: 'application/json',
-          'User-Agent': 'ZAFF-IT-CustomerApp/1.0',
-        },
+      // geocode-makrana edge fn: server-side OSM Nominatim (proper UA, Makrana-bounded,
+      // 30-day cache) + fallback to our own verified stores — browser CORS/rate-limit safe.
+      const { data, error } = await supabase.functions.invoke('geocode-makrana', {
+        body: { query: trimmed },
       });
-      if (!res.ok) {
-        throw new Error(`Nominatim HTTP ${res.status}`);
+      if (error) {
+        throw new Error(error.message ?? 'search failed');
       }
-      const results = (await res.json()) as NominatimResult[];
-      setGeoResults(results);
-      if (results.length === 0) {
-        setGeoError('No OpenStreetMap matches found. You can still enter your street manually below.');
+      const res = (data ?? {}) as { results?: GeoResult[] };
+      setGeoResults(res.results ?? []);
+      if (!res.results || res.results.length === 0) {
+        setGeoError('No match found — gali/mohalla ke naam se try karo, ya neeche manually bharo.');
       }
     } catch {
-      setGeoError('Address lookup unavailable right now. Enter street details manually below.');
+      setGeoError('Location lookup abhi unavailable hai. Neeche street details manually bhar do.');
       setGeoResults([]);
     } finally {
       setSearchingGeo(false);
     }
   };
 
-  const applyNominatimResult = (item: NominatimResult) => {
-    const addr = item.address;
-    const street = [addr?.road, addr?.suburb].filter(Boolean).join(', ');
-    setNewLine1(street.length > 0 ? street : item.display_name.split(',').slice(0, 2).join(', ').trim());
-    setNewCity(addr?.city ?? addr?.town ?? addr?.village ?? 'Makrana');
-    setNewState(addr?.state ?? 'Rajasthan');
-    setNewPincode(addr?.postcode ?? '341505');
-    const parsedLat = Number.parseFloat(item.lat);
-    const parsedLng = Number.parseFloat(item.lon);
-    if (!Number.isNaN(parsedLat) && !Number.isNaN(parsedLng)) {
-      setNewLat(parsedLat);
-      setNewLng(parsedLng);
-    }
+  const applyGeoResult = (item: GeoResult) => {
+    setNewLine1(item.name);
+    setNewCity('Makrana');
+    setNewState('Rajasthan');
+    setNewLat(Number(item.lat.toFixed(6)));
+    setNewLng(Number(item.lng.toFixed(6)));
     setGeoResults([]);
   };
 
@@ -668,10 +649,10 @@ export const AddressBookScreen: React.FC = () => {
 
               {geoResults.length > 0 ? (
                 <View style={styles.geoList}>
-                  {geoResults.map((item) => (
+                  {geoResults.map((item, idx) => (
                     <Pressable
-                      key={String(item.place_id)}
-                      onPress={() => applyNominatimResult(item)}
+                      key={`${item.name}-${idx}`}
+                      onPress={() => applyGeoResult(item)}
                       accessibilityRole="button"
                       style={[
                         styles.geoRow,
@@ -682,16 +663,21 @@ export const AddressBookScreen: React.FC = () => {
                       ]}
                     >
                       <Ionicons
-                        name="pin-outline"
+                        name={item.type === 'store' ? 'storefront-outline' : 'pin-outline'}
                         size={18}
                         color={BRAND_COLORS.electricGreen}
                       />
-                      <Text
-                        style={[styles.geoText, { color: surface.textPrimary }]}
-                        numberOfLines={2}
-                      >
-                        {item.display_name}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={[styles.geoText, { color: surface.textPrimary }]}
+                          numberOfLines={1}
+                        >
+                          {item.name}
+                        </Text>
+                        <Text style={[styles.geoTextSub, { color: surface.textMuted }]} numberOfLines={1}>
+                          {item.full}
+                        </Text>
+                      </View>
                     </Pressable>
                   ))}
                 </View>
@@ -1081,5 +1067,44 @@ const styles = StyleSheet.create({
   },
   splitInput: {
     flex: 1,
+  },
+  geoLabel: {
+    ...TYPOGRAPHY.labelMd,
+    letterSpacing: 0.5,
+  },
+  geoSearchRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    alignItems: 'center',
+  },
+  geoSearchBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: RADII.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  geoResults: {
+    gap: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  geoResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderRadius: RADII.md,
+    borderWidth: 1,
+    padding: SPACING.sm,
+  },
+  geoTextSub: {
+    ...TYPOGRAPHY.bodySm,
+    marginTop: 1,
+  },
+  geoResultFull: {
+    ...TYPOGRAPHY.bodySm,
+  },
+  geoNote: {
+    ...TYPOGRAPHY.bodySm,
+    lineHeight: 18,
   },
 });
