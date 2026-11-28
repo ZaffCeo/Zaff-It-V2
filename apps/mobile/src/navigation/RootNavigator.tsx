@@ -37,6 +37,7 @@ import { RiderShiftKycScreen } from '@/screens/rider/RiderShiftKycScreen';
 import { RiderTasksScreen } from '@/screens/rider/RiderTasksScreen';
 import { RiderDeliveryOtpScreen } from '@/screens/rider/RiderDeliveryOtpScreen';
 import { AdminOpsBoardScreen } from '@/screens/admin/AdminOpsBoardScreen';
+import { AdminApprovalsScreen } from '@/screens/admin/AdminApprovalsScreen';
 import { CatalogReviewScreen } from '@/screens/admin/CatalogReviewScreen';
 import { AdminVaultScreen } from '@/screens/admin/AdminVaultScreen';
 import { AdminMerchantsScreen } from '@/screens/admin/AdminMerchantsScreen';
@@ -98,6 +99,7 @@ export type RiderTabParamList = {
 };
 
 export type AdminTabParamList = {
+  AdminApprovals: undefined;
   AdminRadar: undefined;
   AdminCatalog: undefined;
   AdminMerchants: undefined;
@@ -265,6 +267,9 @@ const AdminTabs: React.FC = () => (
     tabBar={(props) => <PremiumTabBar {...props} />}
     screenOptions={{ headerShown: false }}
   >
+    <AdminTab.Screen name="AdminApprovals" options={{ title: 'Approvals' }}>
+      {() => <AdminApprovalsScreen />}
+    </AdminTab.Screen>
     <AdminTab.Screen name="AdminRadar" options={{ title: 'Radar' }}>
       {() => <AdminOpsBoardScreen initialState="ready" />}
     </AdminTab.Screen>

@@ -111,6 +111,23 @@ export const MerchantRegistrationScreen: React.FC<MerchantRegistrationScreenProp
         setErrorText('Registration nahi ho payi — dobara try karo.');
         return;
       }
+      // Auto-queue seller verification (043 pipeline) — office review sets
+      // merchants.kyc_status='verified' on approval. Fire-and-forget: a failed
+      // queue must not block the persona switch (admin can also see merchants).
+      try {
+        await supabase.rpc('submit_verification_request', {
+          p_kind: 'seller',
+          p_display_name: businessName.trim(),
+          p_phone: phoneText.trim(),
+          p_payload: {
+            business_name: businessName.trim(),
+            city: 'Makrana',
+          },
+          p_note: `Store: ${storeName.trim()} · ${addressText.trim()}`,
+        });
+      } catch {
+        // duplicate-pending is fine (re-register case) — ignore
+      }
       setDone(true);
       // Persona granted server-side → flip workspace root (same login, same account)
       setRole('merchant');

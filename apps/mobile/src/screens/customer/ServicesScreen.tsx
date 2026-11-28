@@ -111,6 +111,77 @@ export const ServicesScreen: React.FC = () => {
     setTimeout(() => setToast(null), 2600);
   }, []);
 
+  // Provider apply flow (verification_requests, 043)
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyName, setApplyName] = useState('');
+  const [applyServices, setApplyServices] = useState<string[]>([]);
+  const [applyExp, setApplyExp] = useState('');
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyErr, setApplyErr] = useState<string | null>(null);
+  const [applyPending, setApplyPending] = useState(false);
+
+  const APPLY_SERVICES = [
+    { key: 'electrician', label: 'Electrician' },
+    { key: 'plumber', label: 'Plumber' },
+    { key: 'carpenter', label: 'Carpenter' },
+    { key: 'ac_repair', label: 'AC Repair' },
+    { key: 'internet', label: 'Internet' },
+    { key: 'cleaning', label: 'Cleaning' },
+    { key: 'tutoring', label: 'Tuition' },
+    { key: 'beauty', label: 'Beauty' },
+  ];
+
+  const checkMyVerification = useCallback(async () => {
+    if (!isSupabaseConfigured() || userId === null) return;
+    const { data } = await supabase.rpc('my_verification_requests');
+    const mine = (Array.isArray(data) ? data : []) as Array<{ kind: string; status: string }>;
+    setApplyPending(
+      mine.some((r) => r.kind === 'service_provider' && r.status === 'pending'),
+    );
+  }, [userId]);
+
+  useEffect(() => {
+    checkMyVerification();
+  }, [checkMyVerification]);
+
+  const submitApply = useCallback(async () => {
+    if (applyBusy) return;
+    const name = applyName.trim();
+    if (name.length < 2) {
+      setApplyErr('Poora naam likho (2+ akshar)');
+      return;
+    }
+    if (applyServices.length === 0) {
+      setApplyErr('Apni service chuno (kam se kam 1)');
+      return;
+    }
+    setApplyBusy(true);
+    setApplyErr(null);
+    try {
+      const { data, error } = await supabase.rpc('submit_verification_request', {
+        p_kind: 'service_provider',
+        p_display_name: name,
+        p_phone: null,
+        p_payload: {
+          services: applyServices,
+          city: zone.city,
+          experience: applyExp.trim() || null,
+        },
+        p_note: applyExp.trim() || null,
+      });
+      if (error) throw new Error(error.message);
+      const res = (data ?? {}) as { ok?: boolean };
+      if (!res.ok) throw new Error('Apply fail');
+      setApplyOpen(false);
+      setApplyPending(true);
+      flash('Apply ho gaya! Zaff office 24-48 ghante me verify karega 🛡️');
+    } catch (e) {
+      setApplyErr(e instanceof Error ? e.message : 'Apply fail');
+    } finally {
+      setApplyBusy(false);
+    }
+  }, [applyBusy, applyName, applyServices, applyExp, zone.city, flash]);
+
   const load = useCallback(async () => {
     if (!isSupabaseConfigured() || userId === null) {
       setRequests([]);
@@ -321,11 +392,38 @@ export const ServicesScreen: React.FC = () => {
         </Text>
       </View>
 
-      {/* Provider inbox entry (earned role only) */}
+      {/* Provider entry — earned role inbox, else apply flow */}
+      {!isProvider && (
+        <View style={{ paddingHorizontal: SPACING.screenPadding, marginTop: SPACING.sm }}>
+          <Pressable
+            onPress={() => {
+              setApplyErr(null);
+              setApplyOpen(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Become a service provider"
+            style={[styles.providerRow, { borderColor: surface.border }]}
+          >
+            <Ionicons name="ribbon-outline" size={18} color={BRAND_COLORS.goldenYellow} />
+            <Text style={[styles.providerText, { color: surface.textPrimary }]}>
+              Service Provider bano — ₹199/month · jobs pao
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={surface.textMuted} />
+          </Pressable>
+          {applyPending && (
+            <View style={[styles.pendingChip, { backgroundColor: dark ? 'rgba(245,158,11,0.15)' : '#FEF3C7' }]}>
+              <Ionicons name="hourglass-outline" size={13} color="#92400E" />
+              <Text style={[styles.pendingChipText, { color: '#92400E' }]}>
+                Aapki verification Zaff office me pending hai — 24-48 ghante
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
       {isProvider && (
         <View style={{ paddingHorizontal: SPACING.screenPadding, marginTop: SPACING.sm }}>
           <Pressable
-            onPress={() => flash('Provider Inbox — agla wave me aayega (quote karna)')}
+            onPress={() => navigation.navigate('ServiceJobs')}
             accessibilityRole="button"
             accessibilityLabel="Open provider job inbox"
             style={[styles.providerRow, { borderColor: surface.border }]}
@@ -627,6 +725,91 @@ export const ServicesScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* Provider apply modal */}
+      <Modal visible={applyOpen} animationType="slide" transparent onRequestClose={() => setApplyOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: surface.surface1, borderColor: surface.border }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: surface.textPrimary }]}>Service Provider — apply</Text>
+              <Pressable onPress={() => setApplyOpen(false)} accessibilityRole="button" accessibilityLabel="Close apply form">
+                <Ionicons name="close" size={22} color={surface.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={[styles.applyIntro, { color: surface.textMuted }]}>
+              ₹199/month · docs + personal verification ke baad aapko jobs milte hain. Paise escrow me — no-show pe ₹50 compensation.
+            </Text>
+            <Text style={[styles.fieldLabel, { color: surface.textMuted }]}>Aapka naam</Text>
+            <TextInput
+              value={applyName}
+              onChangeText={setApplyName}
+              placeholder="e.g. Ramesh Kumar"
+              placeholderTextColor={surface.textMuted}
+              style={[styles.input, { color: surface.textPrimary, borderColor: surface.border }]}
+            />
+            <Text style={[styles.fieldLabel, { color: surface.textMuted }]}>Aapki services</Text>
+            <View style={styles.catGrid}>
+              {APPLY_SERVICES.map((sv) => {
+                const on = applyServices.includes(sv.key);
+                return (
+                  <Pressable
+                    key={sv.key}
+                    onPress={() =>
+                      setApplyServices((prev) =>
+                        on ? prev.filter((x) => x !== sv.key) : [...prev, sv.key],
+                      )
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`Service ${sv.label}`}
+                    style={[
+                      styles.catChip,
+                      {
+                        borderColor: on ? BRAND_COLORS.goldenYellow : surface.border,
+                        backgroundColor: on ? (dark ? 'rgba(255,199,3,0.12)' : '#FFF9E3') : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.catChipText,
+                        { color: on ? '#8A6D00' : surface.textPrimary },
+                      ]}
+                    >
+                      {sv.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={[styles.fieldLabel, { color: surface.textMuted }]}>Experience (optional)</Text>
+            <TextInput
+              value={applyExp}
+              onChangeText={setApplyExp}
+              placeholder="e.g. 5 saal bijli ka kaam, Makrana me"
+              placeholderTextColor={surface.textMuted}
+              multiline
+              style={[styles.input, styles.inputMulti, { color: surface.textPrimary, borderColor: surface.border }]}
+            />
+            {!!applyErr && <Text style={styles.postErr}>{applyErr}</Text>}
+            <Pressable
+              onPress={submitApply}
+              disabled={applyBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Submit provider application"
+              style={[styles.submitBtn, applyBusy && { opacity: 0.6 }]}
+            >
+              {applyBusy ? (
+                <ActivityIndicator size="small" color="#121416" />
+              ) : (
+                <>
+                  <Ionicons name="shield-checkmark" size={16} color="#121416" />
+                  <Text style={styles.submitBtnText}>Apply karo</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Toast */}
       {toast && (
         <View style={styles.toast} pointerEvents="none">
@@ -698,4 +881,7 @@ const styles = StyleSheet.create({
   toast: { position: 'absolute', bottom: 34, left: 20, right: 20, backgroundColor: '#121416', borderRadius: RADII.md, paddingVertical: 11, paddingHorizontal: 14, elevation: 6, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8 },
   toastText: { color: '#FFFFFF', fontSize: 12.5, fontWeight: '700', textAlign: 'center' },
   muted: { fontSize: 12.5 },
+  pendingChip: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, borderRadius: RADII.md, paddingHorizontal: 10, paddingVertical: 8 },
+  pendingChipText: { flex: 1, fontSize: 11.5, fontWeight: '700' },
+  applyIntro: { fontSize: 11.5, lineHeight: 17 },
 });
