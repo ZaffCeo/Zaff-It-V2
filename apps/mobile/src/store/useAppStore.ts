@@ -306,6 +306,10 @@ export const useAppStore = create<AppState>()(
           cartItems: nextItems,
           cartStoreId: nextItems.length > 0 ? state.cartStoreId : null,
           cartStoreName: nextItems.length > 0 ? state.cartStoreName : null,
+          // Basket khali hui to coupon/promo bhi clear — warna stale code
+          // agli cart me galat discount laga dega (clearCart parity).
+          couponCode: nextItems.length > 0 ? state.couponCode : null,
+          promoCode: nextItems.length > 0 ? state.promoCode : null,
         });
       },
 

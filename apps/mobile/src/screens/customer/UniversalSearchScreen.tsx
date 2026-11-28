@@ -125,7 +125,15 @@ export const UniversalSearchScreen: React.FC = () => {
         if (raw) setRecents(JSON.parse(raw) as string[]);
       })
       .catch(() => undefined);
-    setTimeout(() => inputRef.current?.focus(), 350);
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 350);
+    // Deep-link search: home submit / voice flow arrive with initialQuery —
+    // results must show immediately, not an idle screen.
+    const initial = route.params?.initialQuery?.trim();
+    if (initial) void runSearchRef.current?.(initial);
+    return () => {
+      clearTimeout(focusTimer);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const rememberRecent = useCallback((q: string) => {
@@ -164,6 +172,7 @@ export const UniversalSearchScreen: React.FC = () => {
     rec.start();
   };
 
+  const runSearchRef = useRef<((q: string) => Promise<void>) | null>(null);
   const runSearch = useCallback(async (q: string) => {
     if (!isSupabaseConfigured()) {
       setErrorMsg('Search needs the Zaff-It backend. Check your connection.');
@@ -224,6 +233,8 @@ export const UniversalSearchScreen: React.FC = () => {
       setLoading(false);
     }
   }, []);
+
+  runSearchRef.current = runSearch;
 
   const onChangeQuery = (text: string) => {
     setQuery(text);

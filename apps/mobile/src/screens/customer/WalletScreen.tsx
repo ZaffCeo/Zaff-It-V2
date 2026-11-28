@@ -530,7 +530,7 @@ export const WalletScreen: React.FC = () => {
             onPress={() => {
               void Linking.openURL(
                 `https://wa.me/?text=${encodeURIComponent(
-                  'Zaff-It try karo — Makrana ka apna quick-commerce! 15-30 min delivery, mandi pricing: https://zaff-it.vercel.app',
+                  'Zaff-It try karo — Makrana ka apna quick-commerce! 15-30 min delivery, mandi pricing. Play Store par "Zaff-It" search karo 🎁',
                 )}`,
               );
               setToast('WhatsApp khul gaya — link share karo, +100 coins pehle order par');

@@ -159,7 +159,6 @@ function buildCheckoutHtml(opts: {
     currency: opts.currency,
     name: 'ZAFF-IT',
     description: `Order ${opts.orderNumber}`,
-    image: 'https://zaff-it.vercel.app/zaff-logo.png',
     theme: { color: '#FFC703' },
   });
   return `<!doctype html>

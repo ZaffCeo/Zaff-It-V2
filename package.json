@@ -12,7 +12,7 @@
     "android": "npx expo run:android --workspace apps/mobile",
     "ios": "npx expo run:ios --workspace apps/mobile",
     "typecheck": "tsc -p apps/mobile/tsconfig.json --noEmit",
-    "lint": "eslint apps packages --ext .ts,.tsx",
+    "lint": "eslint .",
     "db:push": "npx supabase db push",
     "db:reset": "npx supabase db reset",
     "functions:serve": "npx supabase functions serve",
@@ -27,5 +27,13 @@
   "license": "PROPRIETARY",
   "dependencies": {
     "expo-image-picker": "~57.0.22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-native": "^4.1.0",
+    "typescript-eslint": "^8.74.0"
   }
 }
