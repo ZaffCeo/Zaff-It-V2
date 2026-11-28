@@ -11,6 +11,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -103,6 +104,9 @@ export const AccountComplianceScreen: React.FC = () => {
   const [proPlan, setProPlan] = useState<string | null>(null);
   const [proExpiry, setProExpiry] = useState<string | null>(null);
   const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [nameChangesUsed, setNameChangesUsed] = useState(0);
+  const [nameNextAt, setNameNextAt] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [comingSoonNote, setComingSoonNote] = useState<string | null>(null);
@@ -134,6 +138,18 @@ export const AccountComplianceScreen: React.FC = () => {
             avatarUrl: data.avatar_url ?? null,
             phone: data.phone ?? null,
           });
+        }
+      })();
+
+      void (async () => {
+        const { data: profRow } = await supabase
+          .from('profiles')
+          .select('name_change_count, last_name_change_at')
+          .eq('id', uid)
+          .maybeSingle();
+        if (profRow) {
+          setNameChangesUsed(Number(profRow.name_change_count ?? 0));
+          setNameNextAt((profRow.last_name_change_at as string | null) ?? null);
         }
       })();
 
@@ -236,24 +252,31 @@ export const AccountComplianceScreen: React.FC = () => {
     if (trimmed.length < 2 || trimmed.length > 60) return;
     setSavingName(true);
     setErrorMsg(null);
+    setNameError(null);
     try {
       if (isSupabaseConfigured() && userId !== null) {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ full_name: trimmed })
-          .eq('id', userId);
+        // 039: server-enforced — 2 free changes, then 30-day cooldown
+        const { data, error } = await supabase.rpc('update_my_profile_name', {
+          p_full_name: trimmed,
+        });
         if (error) {
-          setErrorMsg(t.errorGeneric);
-        } else {
-          setProfile((p) => ({ ...p, fullName: trimmed }));
-          setNameModalOpen(false);
+          setNameError(error.message);
+          return;
         }
+        const res = (data ?? {}) as {
+          changes_used?: number;
+          next_change_at?: string | null;
+        };
+        setNameChangesUsed(res.changes_used ?? nameChangesUsed + 1);
+        setNameNextAt(res.next_change_at ?? null);
+        setProfile((p) => ({ ...p, fullName: trimmed }));
+        setNameModalOpen(false);
       } else {
         setProfile((p) => ({ ...p, fullName: trimmed }));
         setNameModalOpen(false);
       }
     } catch {
-      setErrorMsg(t.errorGeneric);
+      setNameError('Save nahi hua — dobara try karo');
     } finally {
       setSavingName(false);
     }
@@ -485,36 +508,69 @@ export const AccountComplianceScreen: React.FC = () => {
           </View>
         </SectionCard>
 
-        {/* ── Live stats ────────────────────────────────────────────── */}
+        {/* ── Live stats (workable) ────────────────────────────────── */}
         <View style={styles.statsRow}>
           <StatTile
             mode={mode}
             icon="wallet-outline"
             value={walletRupees}
-            label="Z-Coins Wallet"
+            label="Z-Wallet"
             accent
+            onPress={() => navigation.navigate('Wallet')}
           />
           <StatTile
             mode={mode}
             icon="id-card-outline"
             value={zaffPublicId ?? 'Banao'}
-            label="ZaffID"
+            label="Zaff-ID"
+            accent
+            onPress={() => navigation.navigate('ZaffId')}
           />
           <StatTile
             mode={mode}
             icon="shield-checkmark-outline"
-            value={proPlan !== null ? 'ACTIVE' : 'JOIN'}
-            label={
-              proPlan !== null && proExpiry !== null
-                ? `till ${new Date(proExpiry).toLocaleDateString('en-IN', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}`
-                : 'Zaff Pro'
-            }
-            accent={proPlan !== null}
+            value={proPlan !== null ? 'ON' : 'OFF'}
+            label="Zaff-It Pro"
+            onPress={() => navigation.navigate('Pro')}
           />
         </View>
+
+        {/* ── Zaff-It Pro toggle row ────────────────────────────────── */}
+        <Pressable
+          onPress={() => navigation.navigate('Pro')}
+          accessibilityRole="button"
+          accessibilityLabel="Zaff-It Pro membership"
+          style={[
+            styles.proToggleCard,
+            {
+              backgroundColor: proPlan !== null ? BRAND_COLORS.goldSoft : surface.surface2,
+              borderColor: proPlan !== null ? BRAND_COLORS.goldBorder : surface.border,
+            },
+          ]}
+        >
+          <Ionicons
+            name="shield-checkmark"
+            size={18}
+            color={proPlan !== null ? '#8A6D00' : surface.textMuted}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.proToggleTitle, { color: surface.textPrimary }]}>
+              Zaff-It Pro
+            </Text>
+            <Text style={[styles.proToggleSub, { color: surface.textSecondary }]} numberOfLines={1}>
+              {proPlan !== null
+                ? `Active${proExpiry ? ` till ${new Date(proExpiry).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''} — free delivery live`
+                : 'OFF — toggle ON karo aur plans dekho'}
+            </Text>
+          </View>
+          <Switch
+            value={proPlan !== null}
+            onValueChange={() => navigation.navigate('Pro')}
+            trackColor={{ false: surface.border, true: BRAND_COLORS.goldenYellow }}
+            thumbColor={proPlan !== null ? BRAND_COLORS.charcoalBlack : surface.textMuted}
+            accessibilityLabel="Zaff-It Pro toggle"
+          />
+        </Pressable>
 
         {/* ── Shopping & activity ──────────────────────────────────── */}
         <SectionCard mode={mode} style={styles.groupCard}>
@@ -595,6 +651,55 @@ export const AccountComplianceScreen: React.FC = () => {
           <Text style={[styles.groupTitle, { color: surface.textMuted }]}>
             ACCOUNT & ESSENTIALS
           </Text>
+
+          {/* ZaffID dedicated space — aapka permanent identity */}
+          <Pressable
+            onPress={() => navigation.navigate('ZaffId')}
+            accessibilityRole="button"
+            accessibilityLabel="Open ZaffID"
+            style={[
+              styles.zaffIdCard,
+              { backgroundColor: surface.surface2, borderColor: BRAND_COLORS.goldBorder },
+            ]}
+          >
+            <View style={[styles.zaffIdBadge, { backgroundColor: BRAND_COLORS.charcoalBlack }]}>
+              <Ionicons name="id-card" size={15} color={BRAND_COLORS.goldenYellow} />
+              <Text style={styles.zaffIdBadgeText}>ZAFF-ID</Text>
+            </View>
+            <Text style={[styles.zaffIdValue, { color: surface.textPrimary }]}>
+              {zaffPublicId ?? 'Apni ZaffID banao — free'}
+            </Text>
+            <Text style={[styles.zaffIdExplainer, { color: surface.textSecondary }]}>
+              {zaffPublicId !== null
+                ? 'Ek ID, poora Zaff ecosystem — future me ZaffMail, ZaffMaps sab isi se. Public ID se koi login nahi hota, ye sirf aapka permanent identity label hai.'
+                : 'ZaffID aapka permanent identity hai — ek ID se poora Zaff ecosystem. 30 second ka setup, free, aur phone number kabhi expose nahi hota.'}
+            </Text>
+            <View style={styles.zaffIdFootRow}>
+              <View
+                style={[
+                  styles.zaffIdStatus,
+                  {
+                    backgroundColor:
+                      zaffStatus === 'deactivated' ? STATUS_COLORS.errorBgDark : BRAND_COLORS.electricGreenSurface,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.zaffIdStatusText,
+                    {
+                      color:
+                        zaffStatus === 'deactivated' ? STATUS_COLORS.errorBright : BRAND_COLORS.electricGreen,
+                    },
+                  ]}
+                >
+                  {zaffStatus === 'deactivated' ? 'DEACTIVATED' : 'ACTIVE'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={surface.textMuted} />
+            </View>
+          </Pressable>
+
           <LinkRow
             mode={mode}
             icon="location-outline"
@@ -602,20 +707,6 @@ export const AccountComplianceScreen: React.FC = () => {
             subtitle="Delivery addresses & pins"
             tint={BRAND_COLORS.goldenYellow}
             onPress={() => navigation.navigate('AddressBook')}
-          />
-          <LinkRow
-            mode={mode}
-            icon="id-card-outline"
-            title="ZaffID — One ID. Every Zaff."
-            subtitle={
-              zaffPublicId !== null
-                ? `Aapki ID: ${zaffPublicId} · ${
-                    zaffStatus === 'deactivated' ? 'DEACTIVATED' : 'ACTIVE'
-                  }`
-                : 'Apni ZaffID generate karein — free, one-time'
-            }
-            tint={BRAND_COLORS.goldenYellow}
-            onPress={() => navigation.navigate('ZaffId')}
             last
           />
         </SectionCard>
@@ -935,22 +1026,48 @@ export const AccountComplianceScreen: React.FC = () => {
           </LinearGradient>
         )}
 
-        {/* ── Legal & safety ───────────────────────────────────────── */}
+        {/* ── Legal & safety (premium, detailed) ───────────────────── */}
         <SectionCard mode={mode} style={styles.groupCard}>
           <Text style={[styles.groupTitle, { color: surface.textMuted }]}>
             LEGAL & SAFETY
           </Text>
+
+          <View
+            style={[
+              styles.trustStrip,
+              { backgroundColor: BRAND_COLORS.electricGreenSurface, borderColor: surface.border },
+            ]}
+          >
+            <Ionicons name="shield-checkmark" size={15} color={BRAND_COLORS.electricGreen} />
+            <Text style={[styles.trustText, { color: surface.textPrimary }]}>
+              Aapka data RLS-locked hai · Zero profiling · Phone-number kabhi expose nahi
+            </Text>
+          </View>
+
           <LinkRow
             mode={mode}
             icon="document-text-outline"
-            title={t.privacyPolicyTitle}
+            title="Privacy Policy"
+            subtitle="Aapka data, aapka control — kabhi kisi ko nahi bikta"
+            tint={BRAND_COLORS.goldenYellow}
             onPress={() => setLegalModal('privacy')}
           />
           <LinkRow
             mode={mode}
             icon="newspaper-outline"
-            title={t.termsOfServiceTitle}
+            title="Terms of Service"
+            subtitle="Buyers, sellers aur riders ke fair-use rules"
+            tint={BRAND_COLORS.goldenYellow}
             onPress={() => setLegalModal('terms')}
+          />
+          <LinkRow
+            mode={mode}
+            icon="server-outline"
+            title="Data Safety"
+            subtitle="Supabase Postgres + row-level security + encrypted sessions"
+            tint={BRAND_COLORS.goldenYellow}
+            onPress={() => setLegalModal('privacy')}
+            last
           />
           <View style={styles.deleteWrap}>
             <PrimaryButton
@@ -960,6 +1077,9 @@ export const AccountComplianceScreen: React.FC = () => {
               mode={colorScheme}
               icon="trash-outline"
             />
+            <Text style={[styles.deleteFoot, { color: surface.textMuted }]}>
+              Delete karne par orders, wallet aur ZaffID 7-din grace period me safe rehte hain
+            </Text>
           </View>
         </SectionCard>
 
@@ -992,6 +1112,27 @@ export const AccountComplianceScreen: React.FC = () => {
             <Text style={[styles.modalTitle, { color: surface.textPrimary }]}>
               Apna naam update karein
             </Text>
+            <View
+              style={[
+                styles.nameLimitBox,
+                {
+                  backgroundColor: surface.surface2,
+                  borderColor: surface.border,
+                },
+              ]}
+            >
+              <Ionicons name="information-circle-outline" size={14} color={surface.textMuted} />
+              <Text style={[styles.nameLimitText, { color: surface.textSecondary }]}>
+                {nameChangesUsed < 2
+                  ? `${2 - nameChangesUsed} free changes bache — iske baad 30 din me ek baar`
+                  : nameNextAt
+                    ? `30-day rule: agla change ${new Date(nameNextAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })} ke baad`
+                    : 'Changes limited — 30 din me ek baar'}
+              </Text>
+            </View>
+            {nameError ? (
+              <Text style={[styles.nameErrorText, { color: STATUS_COLORS.error }]}>{nameError}</Text>
+            ) : null}
             <TextInput
               value={nameDraft}
               onChangeText={setNameDraft}
@@ -1488,5 +1629,99 @@ const styles = StyleSheet.create({
   bizCtaText: {
     ...TYPOGRAPHY.labelMd,
     color: BRAND_COLORS.goldenYellow,
+  },
+  proToggleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderWidth: 1,
+    borderRadius: RADII.md,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  proToggleTitle: {
+    ...TYPOGRAPHY.labelLg,
+  },
+  proToggleSub: {
+    ...TYPOGRAPHY.bodySm,
+    marginTop: 2,
+  },
+  zaffIdCard: {
+    borderWidth: 1.5,
+    borderRadius: RADII.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    gap: SPACING.xs,
+  },
+  zaffIdBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+  },
+  zaffIdBadgeText: {
+    ...TYPOGRAPHY.captionMin,
+    color: BRAND_COLORS.goldenYellow,
+    letterSpacing: 1,
+  },
+  zaffIdValue: {
+    ...TYPOGRAPHY.titleMd,
+  },
+  zaffIdExplainer: {
+    ...TYPOGRAPHY.bodySm,
+    lineHeight: 18,
+  },
+  zaffIdFootRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SPACING.xs,
+  },
+  zaffIdStatus: {
+    borderRadius: RADII.full,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+  },
+  zaffIdStatusText: {
+    ...TYPOGRAPHY.captionMin,
+  },
+  trustStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    borderWidth: 1,
+    borderRadius: RADII.md,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  trustText: {
+    ...TYPOGRAPHY.bodySm,
+    flex: 1,
+    lineHeight: 18,
+  },
+  deleteFoot: {
+    ...TYPOGRAPHY.bodySm,
+    marginTop: SPACING.xs,
+    lineHeight: 17,
+    textAlign: 'center',
+  },
+  nameLimitBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    borderWidth: 1,
+    borderRadius: RADII.sm,
+    padding: SPACING.sm,
+  },
+  nameLimitText: {
+    ...TYPOGRAPHY.bodySm,
+    flex: 1,
+    lineHeight: 17,
+  },
+  nameErrorText: {
+    ...TYPOGRAPHY.bodySm,
   },
 });

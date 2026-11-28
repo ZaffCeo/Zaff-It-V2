@@ -404,7 +404,7 @@ export const CustomerHomeScreen: React.FC = () => {
   const [parchiTab, setParchiTab] = useState<'text' | 'photo'>('text');
   const [ocrBusy, setOcrBusy] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
-  const [searchPhIdx, setSearchPhIdx] = useState(0);
+  const [phText, setPhText] = useState('');
   const micPulse = useRef(new Animated.Value(1)).current;
 
   // Mic pulse while voice listens
@@ -422,13 +422,37 @@ export const CustomerHomeScreen: React.FC = () => {
     micPulse.setValue(1);
   }, [voiceListening, micPulse]);
 
-  // Rotating search placeholder (animation in the bar itself)
+  // Typewriter placeholder animation — types, holds, deletes, next phrase
   useEffect(() => {
-    const t = setInterval(
-      () => setSearchPhIdx((i) => (i + 1) % SEARCH_PLACEHOLDERS.length),
-      3200,
-    );
-    return () => clearInterval(t);
+    let phrase = 0;
+    let pos = 0;
+    let dir: 1 | -1 = 1;
+    let alive = true;
+    const tick = () => {
+      if (!alive) return;
+      const full = SEARCH_PLACEHOLDERS[phrase];
+      pos += dir;
+      if (dir === 1 && pos > full.length) {
+        dir = -1;
+        pos = full.length;
+        timer = setTimeout(tick, 1400);
+        return;
+      }
+      if (dir === -1 && pos < 0) {
+        dir = 1;
+        pos = 0;
+        phrase = (phrase + 1) % SEARCH_PLACEHOLDERS.length;
+        timer = setTimeout(tick, 320);
+        return;
+      }
+      setPhText(full.slice(0, pos));
+      timer = setTimeout(tick, dir === 1 ? 65 : 28);
+    };
+    let timer = setTimeout(tick, 300);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, []);
   const [nearbyStores, setNearbyStores] = useState<StoreInfo[]>(FALLBACK_STORES);
   // W4c/Zaff Ads Phase 1: admin-approved, paid-or-free sponsored placements (always labelled).
@@ -484,7 +508,7 @@ export const CustomerHomeScreen: React.FC = () => {
         {
           p_store_id: primaryStore.id,
           p_category_id: null,
-          p_search: searchQuery.trim().length > 0 ? searchQuery.trim() : null,
+          p_search: null,
           p_limit: 30,
           p_offset: 0,
         },
@@ -517,7 +541,7 @@ export const CustomerHomeScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, t.errorGeneric]);
+  }, [t.errorGeneric]);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -1398,7 +1422,7 @@ export const CustomerHomeScreen: React.FC = () => {
           multiline={false}
           blurOnSubmit={false}
           selectionColor={BRAND_COLORS.goldenYellow}
-          placeholder={SEARCH_PLACEHOLDERS[searchPhIdx]}
+          placeholder={phText || "Need It? Zaff-It!"}
           placeholderTextColor="#94A3B8"
           style={[styles.searchInput, { color: surface.textPrimary }]}
         />

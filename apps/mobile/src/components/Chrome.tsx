@@ -146,10 +146,14 @@ export const StatTile: React.FC<{
   value: string;
   label: string;
   accent?: boolean;
-}> = ({ mode, icon, value, label, accent = false }) => {
+  onPress?: () => void;
+}> = ({ mode, icon, value, label, accent = false, onPress }) => {
   const surface = surfaceFor(mode);
   return (
-    <View
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
       style={[
         styles.statTile,
         {
@@ -179,7 +183,7 @@ export const StatTile: React.FC<{
       >
         {label}
       </Text>
-    </View>
+    </Pressable>
   );
 };
 
